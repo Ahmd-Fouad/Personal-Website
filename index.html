@@ -131,7 +131,7 @@
             Contact Me
           </a>
 
-          <a href="assets/Ahmed-Fouad_CV.pdf" download="Ahmed-Fouad_Infrastructure-Engineer_CV.pdf"
+          <a href="assets/cv.pdf" download="Ahmed-Fouad_Infrastructure-Engineer_CV.pdf"
             class="btn-neumorphic w-50 text-neutral/35 py-3 rounded-full text-lg font-semibold hover:bg-opacity-90 transition-all duration-300 inline-flex items-center justify-center gap-2 transform hover:scale-105 hover:text-primary group">
             Download CV
             <i class="fas fa-arrow-down transition-all duration-100 group-hover:animate-bounce"></i>
@@ -1319,7 +1319,8 @@
       <div class="grid md:grid-cols-2 sm:gap-8 lg:gap-12 max-w-5xl mx-auto">
         <!-- Contact Form -->
         <div class="stagger-animation">
-          <form id="contact-form" class="space-y-6" name="contact" netlify method="POST" data-netlify="true">
+          <form id="contact-form" class="space-y-6" name="contact" netlify method="POST" data-netlify="true"
+            netlify-honeypot="bot-field" action="/success.html">
 
             <!-- Required by Netlify -->
             <input type="hidden" name="form-name" value="contact">
