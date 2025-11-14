@@ -10,7 +10,6 @@ document.addEventListener("DOMContentLoaded", function () {
   initProjectModals();
   initScrollProgress();
   initPortfolioModal()
-  // createParticles();
 });
 
 // Navigation functionality
@@ -171,31 +170,87 @@ function initMobileMenu() {
 }
 
 // Contact form functionality
+// function initContactForm() {
+//   const contactForm = document.getElementById("contact-form");
+//   contactForm.addEventListener("submit", function (e) {
+//     e.preventDefault();
+
+//     // Show loading state
+//     const submitBtn = contactForm.querySelector('button[type="submit"]');
+//     const originalText = submitBtn.innerHTML;
+//     submitBtn.innerHTML =
+//       '<i class="fas fa-spinner fa-spin"></i> Sending...';
+//     submitBtn.disabled = true;
+
+//     // Simulate form submission
+//     setTimeout(() => {
+//       contactForm.reset();
+//       submitBtn.innerHTML = "✓ Message Sent Successfully";
+//       submitBtn.style.backgroundColor = "#22c55e";
+
+//       setTimeout(() => {
+//         submitBtn.innerHTML = originalText;
+//         submitBtn.disabled = false;
+//         submitBtn.style.backgroundColor = "";
+//       }, 3000);
+//     }, 2000);
+//   });
+// }
+
 function initContactForm() {
   const contactForm = document.getElementById("contact-form");
 
   contactForm.addEventListener("submit", function (e) {
-    e.preventDefault();
+    e.preventDefault(); // <-- KEEP THIS LINE! It stops the default browser submission
 
-    // Show loading state
+    // 1. Prepare form data for Netlify
+    const data = new FormData(contactForm);
+    // Netlify expects the data to be URL-encoded (application/x-www-form-urlencoded)
+    const encodedData = new URLSearchParams(data).toString();
+
+    // 2. Show loading state (Your custom UX starts here)
     const submitBtn = contactForm.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML =
-      '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     submitBtn.disabled = true;
 
-    // Simulate form submission
-    setTimeout(() => {
-      contactForm.reset();
-      submitBtn.innerHTML = "✓ Message Sent Successfully";
-      submitBtn.style.backgroundColor = "#22c55e";
+    // 3. Send the data to Netlify via Fetch API
+    fetch(contactForm.action || window.location.href, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: encodedData
+    })
+      .then(response => {
+        // Netlify returns a 200/204 status on successful form handling
+        if (response.ok) {
+          // SUCCESS STATE
+          contactForm.reset();
+          submitBtn.innerHTML = "✓ Message Sent Successfully";
+          submitBtn.style.backgroundColor = "#22c55e"; // Green color
 
-      setTimeout(() => {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        submitBtn.style.backgroundColor = "";
-      }, 3000);
-    }, 2000);
+          setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            submitBtn.style.backgroundColor = "";
+          }, 3000);
+
+        } else {
+          // FAILURE STATE (e.g., Netlify error)
+          throw new Error('Netlify submission failed.');
+        }
+      })
+      .catch(error => {
+        // ERROR STATE (network issues, etc.)
+        console.error('Submission Error:', error);
+        submitBtn.innerHTML = "X Submission Failed";
+        submitBtn.style.backgroundColor = "#ef4444"; // Red color
+
+        setTimeout(() => {
+          submitBtn.innerHTML = originalText;
+          submitBtn.disabled = false;
+          submitBtn.style.backgroundColor = "";
+        }, 3000);
+      });
   });
 }
 
