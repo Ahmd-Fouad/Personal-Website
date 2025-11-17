@@ -170,33 +170,6 @@ function initMobileMenu() {
 }
 
 // Contact form functionality
-// function initContactForm() {
-//   const contactForm = document.getElementById("contact-form");
-//   contactForm.addEventListener("submit", function (e) {
-//     e.preventDefault();
-
-//     // Show loading state
-//     const submitBtn = contactForm.querySelector('button[type="submit"]');
-//     const originalText = submitBtn.innerHTML;
-//     submitBtn.innerHTML =
-//       '<i class="fas fa-spinner fa-spin"></i> Sending...';
-//     submitBtn.disabled = true;
-
-//     // Simulate form submission
-//     setTimeout(() => {
-//       contactForm.reset();
-//       submitBtn.innerHTML = "✓ Message Sent Successfully";
-//       submitBtn.style.backgroundColor = "#22c55e";
-
-//       setTimeout(() => {
-//         submitBtn.innerHTML = originalText;
-//         submitBtn.disabled = false;
-//         submitBtn.style.backgroundColor = "";
-//       }, 3000);
-//     }, 2000);
-//   });
-// }
-
 function initContactForm() {
   const contactForm = document.getElementById("contact-form");
 
