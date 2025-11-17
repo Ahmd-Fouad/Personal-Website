@@ -1,6 +1,6 @@
 node_modules/
 dist/
 .env
-css/input.css
+input.css
 .vscode/
-js/main.js
+main.js
