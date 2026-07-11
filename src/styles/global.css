@@ -1,0 +1,657 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   AHMED FOUAD — Soft-UI / Neumorphic Design System
+   Brand palette preserved 1:1 from the original site:
+     ink #0a0908 · primary(tan) #c6ac8f · secondary(brown) #5e503f
+     cream #eae0d5 · slate #22333b
+   Two themes share one token contract; only the values swap.
+   ========================================================================== */
+
+/* ---- Brand constants (never change) ---- */
+:root {
+  --brand-primary: #c6ac8f;
+  --brand-primary-strong: #b39a7d;
+  --brand-secondary: #5e503f;
+  --brand-cream: #eae0d5;
+  --brand-ink: #0a0908;
+  --brand-slate: #22333b;
+}
+
+/* ---- DARK THEME (default — the site's original identity) ---- */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #14110f;          /* page background, lifted off pure black so soft shadows read */
+  --bg-2: #0d0b0a;        /* deeper band for alternating sections */
+  --surface-hi: #262220;  /* raised-card light face */
+  --surface-lo: #131110;  /* raised-card dark face */
+  --surface: #1b1817;     /* flat surface reference */
+
+  --text: #eae0d5;
+  --text-muted: rgba(234, 224, 213, 0.72);
+  --text-faint: rgba(234, 224, 213, 0.42);
+
+  --accent: #c6ac8f;          /* decorative + interactive accent */
+  --accent-text: #cdb495;     /* accent used for text (AA on dark bg) */
+  --accent-contrast: #0a0908; /* text on top of an accent fill */
+  --border: rgba(198, 172, 143, 0.14);
+  --border-strong: rgba(198, 172, 143, 0.4);
+
+  --shadow-dark: rgba(0, 0, 0, 0.6);
+  --shadow-light: rgba(255, 255, 255, 0.045);
+  --glow: rgba(198, 172, 143, 0.35);
+}
+
+/* ---- LIGHT THEME (soft-UI cream) ---- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #e6dbcb;
+  --bg-2: #ded2c0;
+  --surface-hi: #f3ebdf;
+  --surface-lo: #d6c9b6;
+  --surface: #eae0d5;
+
+  --text: #2a231c;
+  --text-muted: #4d4234;
+  --text-faint: #6d6152;
+
+  --accent: #a07f56;          /* darker tan so it stays visible on cream */
+  --accent-text: #6f5636;     /* AA-contrast brown for accented text */
+  --accent-contrast: #fbf6ee;
+  --border: rgba(94, 80, 63, 0.22);
+  --border-strong: rgba(94, 80, 63, 0.45);
+
+  --shadow-dark: rgba(94, 80, 63, 0.28);
+  --shadow-light: rgba(255, 255, 255, 0.9);
+  --glow: rgba(160, 127, 86, 0.3);
+}
+
+/* ---- Neumorphic shadow scale (theme-aware via the vars above) ---- */
+:root {
+  --nu-sm: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+  --nu-md: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+  --nu-lg: 12px 12px 28px var(--shadow-dark), -9px -9px 22px var(--shadow-light);
+  --nu-inset: inset 5px 5px 11px var(--shadow-dark), inset -5px -5px 11px var(--shadow-light);
+  --nu-inset-sm: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+}
+
+/* ---- Expose tokens as Tailwind utilities (respond to theme via `inline`) ---- */
+@theme inline {
+  --color-primary: var(--accent);
+  --color-primary-text: var(--accent-text);
+  --color-secondary: var(--brand-secondary);
+  --color-cream: var(--brand-cream);
+  --color-ink: var(--brand-ink);
+  --color-slate: var(--brand-slate);
+
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-border: var(--border);
+
+  --font-logo: "Gravitas One", serif;
+  --font-heading: "Rowdies", system-ui, sans-serif;
+  --font-sans: "Zalando Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Custom breakpoints preserved from the original design */
+  --breakpoint-480: 30rem;
+  --breakpoint-992: 62rem;
+}
+
+/* ---- Base ---- */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Lenis manages scrolling when active; disable native smooth to avoid conflict */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-heading);
+    line-height: 1.1;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  /* Accessible, visible focus ring on every interactive element */
+  :where(a, button, input, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  img {
+    max-width: 100%;
+    display: block;
+  }
+}
+
+/* ============================================================================
+   COMPONENT LAYER — the soft-UI surfaces
+   ========================================================================== */
+@layer components {
+  /* Raised, tactile card */
+  .neu-card {
+    background: linear-gradient(145deg, var(--surface-hi), var(--surface-lo));
+    border: 1px solid var(--border);
+    box-shadow: var(--nu-md);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+  }
+  .neu-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(198, 172, 143, 0.08) 0%, transparent 45%, rgba(198, 172, 143, 0.08) 100%);
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+  }
+  .neu-card:hover::before {
+    opacity: 1;
+  }
+  .neu-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--nu-lg);
+  }
+  .neu-card-hover:active {
+    transform: translateY(-1px) scale(0.995);
+    box-shadow: var(--nu-inset-sm);
+  }
+
+  /* Tactile button: raised at rest, pressed (inset) on active */
+  .neu-btn {
+    background: linear-gradient(145deg, var(--surface-hi), var(--surface-lo));
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: var(--nu-md);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+  .neu-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    left: -120%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    transition: left 0.6s ease;
+    pointer-events: none;
+  }
+  .neu-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--nu-lg);
+    color: var(--accent-text);
+  }
+  .neu-btn:hover::after {
+    left: 120%;
+  }
+  .neu-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--nu-inset);
+  }
+
+  /* Primary (accent-filled) button */
+  .neu-btn-accent {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border: 1px solid var(--accent);
+    box-shadow: var(--nu-md);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+    will-change: transform;
+  }
+  .neu-btn-accent::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    left: -120%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+    transition: left 0.6s ease;
+    pointer-events: none;
+  }
+  .neu-btn-accent:hover {
+    color: var(--accent-contrast);
+    filter: brightness(1.05);
+    transform: translateY(-2px);
+    box-shadow: var(--nu-lg);
+  }
+  .neu-btn-accent:hover::after {
+    left: 120%;
+  }
+  .neu-btn-accent:active {
+    transform: translateY(0);
+    box-shadow: var(--nu-inset-sm);
+  }
+
+  /* Pressed / inset field */
+  .neu-input {
+    background: linear-gradient(145deg, var(--surface-lo), var(--surface-hi));
+    border: 1px solid var(--border);
+    box-shadow: var(--nu-inset-sm);
+    color: var(--text);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .neu-input::placeholder {
+    color: transparent;
+  }
+  .neu-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: var(--nu-inset), 0 0 0 2px var(--glow);
+  }
+
+  /* Small inset chip (numbers, icon badges) */
+  .neu-chip {
+    background: linear-gradient(145deg, var(--surface-hi), var(--surface-lo));
+    box-shadow: var(--nu-sm);
+    border: 1px solid var(--border-strong);
+  }
+
+  /* Skill meter */
+  .skill-track {
+    background: color-mix(in oklab, var(--accent) 20%, transparent);
+    box-shadow: var(--nu-inset-sm);
+    border-radius: 999px;
+    height: 9px;
+    overflow: hidden;
+  }
+  .skill-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--brand-cream));
+    transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+  }
+  .skill-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    left: -100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: shimmer 2.2s infinite;
+  }
+
+  /* Accent gradient text (headings) */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--accent-text), var(--brand-cream));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  [data-theme="light"] .text-gradient {
+    background: linear-gradient(135deg, var(--accent-text), var(--brand-secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Thin decorative divider between sections */
+  .section-divider {
+    height: 1px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  .container-x {
+    width: 100%;
+    margin-inline: auto;
+    max-width: 80rem;
+    padding-inline: 1.5rem;
+  }
+  @media (min-width: 768px) {
+    .container-x { padding-inline: 2.25rem; }
+  }
+
+  .hero-inner {
+    min-block-size: 100svh;
+  }
+
+  .hero-copy {
+    container-type: inline-size;
+  }
+
+  .hero-name {
+    margin-block-end: clamp(0.65rem, 2cqi, 0.95rem);
+    letter-spacing: 0;
+    text-wrap: balance;
+    text-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
+  }
+
+  .hero-title {
+    margin-block-end: clamp(1rem, 3cqi, 1.35rem);
+    font-size: clamp(1.05rem, 5.6cqi, 2.85rem);
+    line-height: 1.12;
+    letter-spacing: 0;
+    max-inline-size: 100%;
+    white-space: nowrap;
+    filter: drop-shadow(0 10px 28px color-mix(in oklab, var(--accent) 24%, transparent));
+  }
+
+  .hero-tagline {
+    margin-block-end: clamp(1.55rem, 4cqi, 2.2rem);
+    line-height: 1.72;
+    text-wrap: pretty;
+  }
+
+  .hero-actions {
+    row-gap: 0.85rem;
+  }
+
+  .hero-action {
+    min-block-size: 3.15rem;
+    isolation: isolate;
+  }
+
+  .hero-action:hover {
+    border-color: color-mix(in oklab, var(--accent) 34%, transparent);
+    box-shadow: var(--nu-lg), 0 14px 34px -24px var(--accent);
+    transform: translateY(-3px);
+  }
+
+  .hero-action:active {
+    transform: translateY(-1px);
+  }
+
+  .hero-img {
+    position: relative;
+    isolation: isolate;
+    backface-visibility: hidden;
+    will-change: transform, opacity;
+  }
+
+  .hero-img::before {
+    content: "";
+    position: absolute;
+    inset: -14% -18%;
+    z-index: -2;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--accent) 38%, transparent), transparent 42%),
+      radial-gradient(circle at 54% 56%, color-mix(in oklab, var(--brand-slate) 36%, transparent), transparent 62%);
+    filter: blur(24px);
+    opacity: 0.78;
+  }
+
+  .hero-img::after {
+    content: "";
+    position: absolute;
+    inset: 5%;
+    z-index: -1;
+    border-radius: 2.2rem;
+    background: color-mix(in oklab, var(--accent) 12%, transparent);
+    box-shadow: 0 24px 70px -44px var(--accent);
+  }
+
+  .hero-img-frame {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklab, var(--accent) 26%, transparent);
+    border-radius: 2rem;
+    background:
+      linear-gradient(145deg, color-mix(in oklab, var(--surface-hi) 72%, transparent), color-mix(in oklab, var(--surface-lo) 88%, transparent));
+    box-shadow:
+      var(--nu-lg),
+      inset 0 0 0 1px color-mix(in oklab, var(--brand-cream) 7%, transparent),
+      0 26px 70px -48px var(--accent);
+  }
+
+  .hero-img-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+      linear-gradient(135deg, color-mix(in oklab, var(--brand-cream) 14%, transparent), transparent 34%),
+      radial-gradient(circle at 50% 14%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 38%);
+    pointer-events: none;
+  }
+
+  .hero-portrait {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 50%;
+  }
+
+  .typewriter-title {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: min(100%, calc(var(--typewriter-ch, 28) * 0.64em));
+    max-inline-size: 100%;
+    min-block-size: 1.12em;
+    vertical-align: bottom;
+    white-space: nowrap;
+  }
+
+  .typewriter-text {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .typewriter-cursor {
+    inline-size: max(2px, 0.08em);
+    block-size: 0.9em;
+    margin-inline-start: 0.08em;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.86;
+    transform: translateY(0.05em);
+    animation: caretBlink 1s steps(2, end) infinite;
+  }
+
+  .download-icon {
+    transform: translate3d(0, 0, 0);
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .download-cv:hover .download-icon,
+  .download-cv:focus-visible .download-icon {
+    animation: downloadIconHoverBounce 0.96s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+  }
+
+  .gallery-thumb {
+    outline-offset: -4px;
+  }
+
+  .modal-icon-btn {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--brand-slate) 72%, transparent);
+    color: var(--accent);
+    box-shadow: var(--nu-sm);
+    transition: transform 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .modal-icon-btn:hover {
+    transform: scale(1.06);
+    background: var(--brand-slate);
+    box-shadow: var(--nu-md);
+  }
+
+  .modal-icon-btn:active {
+    transform: scale(0.98);
+    box-shadow: var(--nu-inset-sm);
+  }
+
+  /* Applied by JS to a modal trigger after a pointer-driven close: with
+     pointer events off, the element can't match :hover, so its overlay/lift
+     clears instantly. JS removes it once the pointer leaves the element. */
+  .hover-muted {
+    pointer-events: none !important;
+  }
+
+  .project-modal {
+    opacity: 0;
+    pointer-events: none;
+    overscroll-behavior: contain;
+    transition: opacity 0.22s ease;
+  }
+
+  .project-modal.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .project-modal > .neu-card {
+    opacity: 0.98;
+    transform: translateY(16px) scale(0.985);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+  }
+
+  .project-modal.is-open > .neu-card {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  @media (min-width: 992px) {
+    .typewriter-title {
+      justify-content: flex-start;
+    }
+
+    .hero-img-frame,
+    .hero-img::after {
+      border-radius: 2.45rem;
+    }
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   ANIMATIONS
+   ========================================================================== */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes floatReverse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(12px); }
+}
+@keyframes shimmer {
+  100% { left: 100%; }
+}
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+@keyframes caretBlink {
+  0%, 48% { opacity: 0.86; }
+  49%, 100% { opacity: 0; }
+}
+@keyframes downloadIconHoverBounce {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  36% {
+    transform: translate3d(0, 2.5px, 0);
+  }
+  62% {
+    transform: translate3d(0, -0.75px, 0);
+  }
+  82% {
+    transform: translate3d(0, 0.55px, 0);
+  }
+}
+
+.floating { animation: float 6s ease-in-out infinite; }
+.floating-slow { animation: float 8s ease-in-out infinite; }
+.floating-reverse { animation: floatReverse 7s ease-in-out infinite; }
+.soft-pulse { animation: softPulse 2.6s ease-in-out infinite; }
+
+/* Animated hero backdrop using the brand gradient */
+.hero-gradient {
+  background: linear-gradient(-45deg, var(--bg-2), var(--brand-slate), var(--brand-secondary), var(--bg));
+  background-size: 400% 400%;
+  animation: gradientShift 28s ease infinite;
+}
+[data-theme="light"] .hero-gradient {
+  background: linear-gradient(-45deg, var(--bg), #d9c3a3, var(--bg-2), #e9dcc9);
+  background-size: 400% 400%;
+  animation: gradientShift 28s ease infinite;
+}
+
+/* GSAP reveal: elements start hidden, JS reveals them.
+   If JS is disabled, this fallback shows everything. */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px) scale(0.985);
+}
+.no-js .reveal {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---- Reduced motion: honour the user's OS preference ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1 !important; transform: none !important; }
+  .hero-img { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .floating, .floating-slow, .floating-reverse, .soft-pulse, .typewriter-cursor, .download-icon { animation: none !important; }
+  .download-icon { transform: none !important; }
+  .project-modal,
+  .project-modal > .neu-card {
+    transition: none !important;
+  }
+}

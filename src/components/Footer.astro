@@ -1,0 +1,21 @@
+---
+import { Icon } from 'astro-icon/components';
+import { footer } from '@data/site';
+---
+
+<footer class="border-t border-border py-8">
+  <div class="container-x text-center">
+    <p class="text-text-muted">{footer.copyright}</p>
+    <p class="mt-2 text-sm text-text-faint">{footer.tagline}</p>
+  </div>
+</footer>
+
+<!-- Scroll to top -->
+<button
+  id="scroll-top"
+  type="button"
+  class="neu-btn-accent pointer-events-none fixed bottom-8 right-8 z-40 grid h-14 w-14 place-items-center rounded-full opacity-0 transition-all duration-300 hover:scale-110"
+  aria-label="Scroll to top"
+>
+  <Icon name="fa6-solid:arrow-up" class="h-5 w-5" aria-hidden="true" />
+</button>

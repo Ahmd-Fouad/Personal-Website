@@ -1,0 +1,58 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { getImage } from 'astro:assets';
+import Navbar from '@components/Navbar.astro';
+import Hero from '@components/sections/Hero.astro';
+import About from '@components/sections/About.astro';
+import Experience from '@components/sections/Experience.astro';
+import Skills from '@components/sections/Skills.astro';
+import Process from '@components/sections/Process.astro';
+import Projects from '@components/sections/Projects.astro';
+import Portfolio from '@components/sections/Portfolio.astro';
+import VideoShowreel from '@components/sections/VideoShowreel.astro';
+import Education from '@components/sections/Education.astro';
+import Contact from '@components/sections/Contact.astro';
+import Footer from '@components/Footer.astro';
+import heroImg from '../assets/Hero-PImg.png';
+
+const heroImageWidths = [212, 240, 320, 360, 424, 480, 640, 720, 848, 960, 1122];
+const heroImageSizes =
+  '(min-width: 1536px) 480px, (min-width: 1280px) 424px, (min-width: 1024px) 360px, (min-width: 992px) 320px, (min-width: 480px) 240px, 64vw';
+const heroImagePreload = await getImage({
+  src: heroImg,
+  width: 1122,
+  height: 1402,
+  widths: heroImageWidths,
+  sizes: heroImageSizes,
+  format: 'webp',
+  quality: 88,
+});
+---
+
+<Layout>
+  <Fragment slot="head">
+    <link
+      rel="preload"
+      as="image"
+      href={heroImagePreload.src}
+      imagesrcset={heroImagePreload.srcSet.attribute}
+      imagesizes={heroImageSizes}
+      type="image/webp"
+      fetchpriority="high"
+    />
+  </Fragment>
+  <Navbar />
+  <main id="main">
+    <Hero />
+    <About />
+    <Experience />
+    <Skills />
+    <Process />
+    <Projects />
+    <Portfolio />
+    <VideoShowreel />
+    <Education />
+    <Contact />
+  </main>
+  <Footer />
+</Layout>

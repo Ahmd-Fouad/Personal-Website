@@ -1,0 +1,57 @@
+---
+import { Image } from 'astro:assets';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { about } from '@data/site';
+import aboutImg from '../../assets/About-PImg.jpg';
+
+const aboutImageWidths = [320, 480, 640, 800, 960, 1122];
+const aboutImageQuality = 92;
+---
+
+<section id="about" class="relative bg-bg-2/40 py-20">
+  <div class="section-divider mb-16"></div>
+  <div class="container-x">
+    <SectionHeading lead="About" highlight="Me" />
+
+    <div class="grid items-center gap-12 lg:grid-cols-6">
+      <!-- Image -->
+      <div
+        class="reveal mx-auto max-w-[75%] sm:max-w-[55%] md:max-w-[45%] lg:col-span-2 lg:max-w-none"
+      >
+        <div class="neu-card neu-card-hover flex items-center justify-center rounded-3xl">
+          <Image
+            src={aboutImg}
+            alt="Portrait of Ahmed Fouad"
+            widths={aboutImageWidths}
+            sizes="(min-width: 1024px) 33vw, (min-width: 768px) 45vw, (min-width: 640px) 55vw, 75vw"
+            quality={aboutImageQuality}
+            class="w-full"
+          />
+        </div>
+      </div>
+
+      <!-- Bio -->
+      <div class="reveal lg:col-span-4 lg:ps-10">
+        {
+          about.paragraphs.map((p) => (
+            <p class="mb-4 text-center leading-relaxed text-text-muted lg:text-start xl:text-lg">
+              {p}
+            </p>
+          ))
+        }
+
+        <div class="mt-6 grid gap-6 sm:grid-cols-2">
+          {
+            about.highlights.map((h) => (
+              <div class="neu-card neu-card-hover rounded-2xl p-4 text-center">
+                <h3 class="soft-pulse mb-2 text-4xl font-bold text-primary">{h.value}</h3>
+                <p class="text-sm uppercase tracking-wider text-text-muted">{h.label}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="section-divider mt-16"></div>
+</section>

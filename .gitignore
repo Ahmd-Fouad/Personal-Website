@@ -1,6 +1,22 @@
-node_modules/
+# build output
 dist/
+.astro/
+
+# dependencies
+node_modules/
+.pnpm-store/
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+
+# environment
 .env
-input.css
+.env.production
+
+# editor / os
 .vscode/
-main.js
+.DS_Store
+
+# archived legacy site (kept locally for reference, not deployed)
+_original/

@@ -1,0 +1,39 @@
+---
+import { Icon } from 'astro-icon/components';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { skillGroups } from '@data/skills';
+---
+
+<section id="skills" class="relative bg-bg-2/40 py-20">
+  <div class="section-divider mb-16"></div>
+  <div class="container-x">
+    <SectionHeading lead="Technical" highlight="Skills" />
+
+    <div class="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+      {
+        skillGroups.map((group) => (
+          <div class="neu-card neu-card-hover reveal rounded-3xl p-8">
+            <div class={`mb-3 text-center text-4xl text-primary md:text-start ${group.motion}`}>
+              <Icon name={group.icon} class="inline-block h-9 w-9" aria-hidden="true" />
+            </div>
+            <h3 class="mb-6 text-center text-2xl font-bold md:text-start">{group.title}</h3>
+            <div class="space-y-4">
+              {group.skills.map((skill) => (
+                <div>
+                  <div class="mb-1 flex justify-between text-sm">
+                    <span>{skill.name}</span>
+                    <span class="text-text-muted">{skill.level}%</span>
+                  </div>
+                  <div class="skill-track">
+                    <div class="skill-fill" data-width={skill.level} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+  <div class="section-divider mt-16"></div>
+</section>

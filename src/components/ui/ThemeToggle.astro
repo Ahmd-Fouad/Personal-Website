@@ -1,0 +1,23 @@
+---
+import { Icon } from 'astro-icon/components';
+---
+
+<button
+  id="theme-toggle"
+  type="button"
+  class="neu-btn grid h-10 w-10 place-items-center rounded-full text-primary"
+  aria-label="Toggle color theme"
+  aria-pressed="false"
+>
+  <Icon name="fa6-solid:moon" class="theme-icon-dark h-4 w-4" aria-hidden="true" />
+  <Icon name="fa6-solid:sun" class="theme-icon-light hidden h-4 w-4" aria-hidden="true" />
+</button>
+
+<style>
+  :global([data-theme='light']) .theme-icon-dark {
+    display: none;
+  }
+  :global([data-theme='light']) .theme-icon-light {
+    display: block;
+  }
+</style>

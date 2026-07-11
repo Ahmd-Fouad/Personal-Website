@@ -1,0 +1,131 @@
+---
+import { Image } from 'astro:assets';
+import { Icon } from 'astro-icon/components';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { portfolioTiles, galleryImages } from '@data/portfolio';
+
+const portfolioThumbWidths = [320, 480, 640, 800, 960, 1200, 1440, 1600, 1920];
+const portfolioGalleryWidths = [720, 1080, 1440, 1600, 1800, 1920];
+const portfolioImageQuality = 92;
+const imageWidths = (image: { width: number }, candidates: number[]) =>
+  Array.from(new Set([...candidates.filter((width) => width <= image.width), image.width])).sort(
+    (a, b) => a - b,
+  );
+---
+
+<section id="portfolio" class="relative py-20">
+  <div class="container-x">
+    <SectionHeading lead="Visual" highlight="Portfolio" />
+
+    <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {
+        portfolioTiles.map((tile, i) => (
+          <figure class="neu-card neu-card-hover reveal group relative h-60 overflow-hidden rounded-3xl border border-border-strong">
+            <button
+              type="button"
+              class="gallery-thumb block h-full w-full cursor-zoom-in overflow-hidden rounded-3xl text-left"
+              data-gallery-open={i}
+              aria-label={`Open ${tile.title} portfolio image`}
+              aria-haspopup="dialog"
+            >
+              <Image
+                src={tile.image}
+                alt={`${tile.title} - ${tile.subtitle}`}
+                widths={imageWidths(tile.image, portfolioThumbWidths)}
+                sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                quality={portfolioImageQuality}
+                loading="lazy"
+                decoding="async"
+                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <span class="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-ink/70 text-center text-cream opacity-0 backdrop-blur-[2px] transition-opacity duration-300 group-hover:opacity-100">
+                <span class="text-xl font-bold">{tile.title}</span>
+                <span class="text-lg">{tile.subtitle}</span>
+              </span>
+            </button>
+          </figure>
+        ))
+      }
+    </div>
+
+    <div class="reveal mt-10 text-center">
+      <button
+        id="portfolio-btn"
+        type="button"
+        class="neu-btn-accent rounded-full px-12 py-3 text-xl font-semibold"
+        aria-haspopup="dialog"
+        data-gallery-open="0"
+      >
+        View More
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Portfolio gallery lightbox -->
+<div
+  id="portfolio-modal"
+  class="project-modal fixed inset-0 z-[60] hidden items-center justify-center bg-ink/80 p-3 backdrop-blur-sm sm:p-4"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Portfolio gallery"
+>
+  <div class="neu-card relative flex h-[92svh] w-full max-w-[min(96vw,92rem)] flex-col overflow-hidden rounded-3xl border border-border-strong">
+    <button
+      type="button"
+      class="modal-close modal-icon-btn absolute end-4 top-4 z-20"
+      aria-label="Close gallery"
+    >
+      <Icon name="fa6-solid:xmark" class="h-5 w-5" aria-hidden="true" />
+    </button>
+
+    <div
+      id="gallery-track"
+      class="scrollbar-none flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth"
+      tabindex="0"
+      aria-label="Portfolio gallery slides"
+    >
+      {
+        galleryImages.map((img, i) => (
+          <div class="flex h-full w-full shrink-0 snap-center items-center justify-center p-3 sm:p-6">
+            <Image
+              src={img}
+              alt={`Portfolio work ${i + 1}`}
+              widths={imageWidths(img, portfolioGalleryWidths)}
+              sizes="(min-width: 1024px) 1000px, 100vw"
+              quality={portfolioImageQuality}
+              loading="lazy"
+              decoding="async"
+              class="max-h-full max-w-full rounded-xl object-contain shadow-2xl shadow-ink/30"
+            />
+          </div>
+        ))
+      }
+    </div>
+
+    <p
+      id="gallery-counter"
+      class="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full bg-ink/70 px-4 py-1 text-sm font-semibold text-cream"
+      aria-live="polite"
+    >
+      1 / {galleryImages.length}
+    </p>
+
+    <button
+      type="button"
+      id="gallery-prev"
+      class="modal-icon-btn absolute start-3 top-1/2 z-20 -translate-y-1/2"
+      aria-label="Previous image"
+    >
+      <Icon name="fa6-solid:chevron-left" class="h-4 w-4" aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      id="gallery-next"
+      class="modal-icon-btn absolute end-3 top-1/2 z-20 -translate-y-1/2"
+      aria-label="Next image"
+    >
+      <Icon name="fa6-solid:chevron-right" class="h-4 w-4" aria-hidden="true" />
+    </button>
+  </div>
+</div>

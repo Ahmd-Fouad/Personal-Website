@@ -1,0 +1,47 @@
+---
+import { Icon } from 'astro-icon/components';
+import { videoSlides } from '@data/education';
+---
+
+<div class="section-divider"></div>
+<section class="relative h-[360px] w-full overflow-hidden bg-primary" aria-label="Project showreel">
+  <div id="video-track" class="scrollbar-none flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth">
+    {
+      videoSlides.map((slide, i) => (
+        <div class="relative h-full w-full shrink-0 snap-center">
+          <div class="absolute inset-0 z-10 bg-ink/25"></div>
+          <video
+            class="h-full w-full object-cover"
+            autoplay={i === 0}
+            muted
+            loop
+            playsinline
+            preload={i === 0 ? 'metadata' : 'none'}
+            aria-label={slide.label}
+          >
+            <source src={slide.src} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      ))
+    }
+  </div>
+
+  <button
+    type="button"
+    id="video-prev"
+    class="absolute start-3 top-1/2 z-30 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary transition-transform duration-300 hover:scale-105 hover:bg-slate"
+    aria-label="Previous video"
+  >
+    <Icon name="fa6-solid:chevron-left" class="h-4 w-4" aria-hidden="true" />
+  </button>
+  <button
+    type="button"
+    id="video-next"
+    class="absolute end-3 top-1/2 z-30 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary transition-transform duration-300 hover:scale-105 hover:bg-slate"
+    aria-label="Next video"
+  >
+    <Icon name="fa6-solid:chevron-right" class="h-4 w-4" aria-hidden="true" />
+  </button>
+</section>
+<div class="section-divider"></div>

@@ -1,0 +1,133 @@
+---
+import { Icon } from 'astro-icon/components';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { contact, socials } from '@data/site';
+
+const infoCards = [
+  { icon: 'fa6-solid:envelope', motion: 'floating', label: 'Email', value: contact.email },
+  { icon: 'fa6-solid:phone', motion: 'floating-slow', label: 'Phone', value: contact.phone },
+  { icon: 'fa6-solid:location-dot', motion: 'floating-reverse', label: 'Location', value: contact.location },
+];
+
+const fields: { id: string; name: string; type: 'text' | 'email'; label: string }[] = [
+  { id: 'name', name: 'name', type: 'text', label: 'Your Name' },
+  { id: 'email', name: 'email', type: 'email', label: 'Your Email' },
+  { id: 'subject', name: 'subject', type: 'text', label: 'Subject' },
+];
+---
+
+<section id="contact" class="relative bg-bg-2/40 py-20">
+  <div class="section-divider mb-16"></div>
+  <div class="container-x">
+    <SectionHeading lead="Get in" highlight="Touch" />
+
+    <div class="mx-auto grid max-w-5xl gap-10 md:grid-cols-2 lg:gap-12">
+      <!-- Contact form -->
+      <div class="reveal order-2">
+        <h3 class="mb-4 text-2xl font-semibold">Leave A Message</h3>
+        <form
+          id="contact-form"
+          name="contact"
+          method="POST"
+          data-netlify="true"
+          netlify-honeypot="bot-field"
+          class="space-y-6"
+        >
+          <input type="hidden" name="form-name" value="contact" />
+          <p class="hidden">
+            <label>Don’t fill this out: <input name="bot-field" /></label>
+          </p>
+
+          {
+            fields.map((field) => (
+              <div class="relative">
+                <input
+                  id={field.id}
+                  name={field.name}
+                  type={field.type}
+                  placeholder=" "
+                  required
+                  class="neu-input peer w-full rounded-xl px-6 py-4 focus:outline-none"
+                />
+                <label
+                  for={field.id}
+                  class="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-text-faint transition-all duration-300 peer-focus:-top-2 peer-focus:start-3 peer-focus:rounded-full peer-focus:bg-bg peer-focus:px-2 peer-focus:text-sm peer-focus:text-primary peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:start-3 peer-[:not(:placeholder-shown)]:bg-bg peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm"
+                >
+                  {field.label}
+                </label>
+              </div>
+            ))
+          }
+
+          <div class="relative">
+            <textarea
+              id="message"
+              name="message"
+              rows="5"
+              placeholder=" "
+              required
+              class="neu-input peer w-full resize-none rounded-xl px-6 py-4 focus:outline-none"></textarea>
+            <label
+              for="message"
+              class="pointer-events-none absolute start-4 top-6 -translate-y-1/2 text-text-faint transition-all duration-300 peer-focus:-top-2 peer-focus:start-3 peer-focus:rounded-full peer-focus:bg-bg peer-focus:px-2 peer-focus:text-sm peer-focus:text-primary peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:start-3 peer-[:not(:placeholder-shown)]:bg-bg peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm"
+            >
+              Your Message
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            class="neu-btn group inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-lg font-semibold"
+          >
+            Send Message
+            <Icon
+              name="fa6-solid:paper-plane"
+              class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+              aria-hidden="true"
+            />
+          </button>
+        </form>
+      </div>
+
+      <!-- Contact info -->
+      <div class="reveal order-1 mb-4 md:mb-0">
+        <h3 class="mb-4 text-2xl font-semibold">Contact Information</h3>
+        <div class="space-y-3">
+          {
+            infoCards.map((card) => (
+              <div class="neu-card neu-card-hover flex items-start gap-4 rounded-xl p-6">
+                <div class={`text-2xl text-primary ${card.motion}`}>
+                  <Icon name={card.icon} class="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <h4 class="mb-1 font-bold">{card.label}</h4>
+                  <p class="text-text-muted">{card.value}</p>
+                </div>
+              </div>
+            ))
+          }
+
+          <div class="neu-card rounded-xl p-6">
+            <h4 class="mb-4 font-bold">Connect with me</h4>
+            <div class="flex flex-wrap gap-4">
+              {
+                socials.map((social) => (
+                  <a
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="grid h-12 w-12 place-items-center rounded-full bg-primary/20 text-primary transition-all duration-300 hover:scale-110 hover:bg-primary hover:text-ink"
+                    aria-label={social.label}
+                  >
+                    <Icon name={social.icon} class="h-5 w-5" aria-hidden="true" />
+                  </a>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="section-divider mt-16"></div>
+</section>
