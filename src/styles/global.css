@@ -619,6 +619,16 @@
 .floating-reverse { animation: floatReverse 7s ease-in-out infinite; }
 .soft-pulse { animation: softPulse 2.6s ease-in-out infinite; }
 
+/* Pause ambient/decorative continuous animation while the tab is hidden
+   (JS sets data-doc-hidden on <html> via the Page Visibility API). */
+html[data-doc-hidden] .hero-gradient,
+html[data-doc-hidden] .floating,
+html[data-doc-hidden] .floating-slow,
+html[data-doc-hidden] .floating-reverse,
+html[data-doc-hidden] .soft-pulse {
+  animation-play-state: paused;
+}
+
 /* Animated hero backdrop using the brand gradient */
 .hero-gradient {
   background: linear-gradient(-45deg, var(--bg-2), var(--brand-slate), var(--brand-secondary), var(--bg));

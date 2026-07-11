@@ -7,21 +7,43 @@ import { videoSlides } from '@data/education';
 <section class="relative h-[360px] w-full overflow-hidden bg-primary" aria-label="Project showreel">
   <div id="video-track" class="scrollbar-none flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth">
     {
-      videoSlides.map((slide, i) => (
-        <div class="relative h-full w-full shrink-0 snap-center">
-          <div class="absolute inset-0 z-10 bg-ink/25"></div>
+      videoSlides.map((slide) => (
+        <div class="video-slide relative h-full w-full shrink-0 snap-center" data-video-slide>
+          {/*
+            preload="none", no `autoplay`, and a data-only source: nothing is
+            fetched on initial page load. JS attaches the source only after an
+            explicit activation of the play control.
+          */}
           <video
-            class="h-full w-full object-cover"
-            autoplay={i === 0}
+            class="video-el h-full w-full object-cover"
             muted
             loop
             playsinline
-            preload={i === 0 ? 'metadata' : 'none'}
+            preload="none"
             aria-label={slide.label}
           >
-            <source src={slide.src} type="video/mp4" />
+            <source data-src={slide.src} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
+          <div class="pointer-events-none absolute inset-0 z-10 bg-ink/25"></div>
+          {/* Branded poster placeholder — shown until playback begins so the
+              slide is never a blank/black box while media is unloaded. */}
+          <div
+            class="video-poster pointer-events-none absolute inset-0 z-20 bg-primary"
+            data-video-poster
+            aria-hidden="true"
+          >
+          </div>
+          <button
+            type="button"
+            class="video-toggle absolute left-1/2 top-1/2 z-30 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary shadow-lg transition-transform duration-300 hover:scale-105 hover:bg-slate"
+            data-video-toggle
+            aria-label={`Play ${slide.label}`}
+            aria-pressed="false"
+          >
+            <Icon name="fa6-solid:play" class="video-icon-play h-6 w-6 ps-0.5" aria-hidden="true" />
+            <Icon name="fa6-solid:pause" class="video-icon-pause hidden h-6 w-6" aria-hidden="true" />
+          </button>
         </div>
       ))
     }
@@ -30,7 +52,7 @@ import { videoSlides } from '@data/education';
   <button
     type="button"
     id="video-prev"
-    class="absolute start-3 top-1/2 z-30 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary transition-transform duration-300 hover:scale-105 hover:bg-slate"
+    class="absolute start-3 top-1/2 z-40 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary transition-transform duration-300 hover:scale-105 hover:bg-slate"
     aria-label="Previous video"
   >
     <Icon name="fa6-solid:chevron-left" class="h-4 w-4" aria-hidden="true" />
@@ -38,10 +60,36 @@ import { videoSlides } from '@data/education';
   <button
     type="button"
     id="video-next"
-    class="absolute end-3 top-1/2 z-30 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary transition-transform duration-300 hover:scale-105 hover:bg-slate"
+    class="absolute end-3 top-1/2 z-40 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary transition-transform duration-300 hover:scale-105 hover:bg-slate"
     aria-label="Next video"
   >
     <Icon name="fa6-solid:chevron-right" class="h-4 w-4" aria-hidden="true" />
   </button>
 </section>
 <div class="section-divider"></div>
+
+<style>
+  /* Once a slide is playing, hide its poster and swap the control to a pause
+     icon. Kept in CSS so state is a single class toggle from JS. */
+  .video-slide.is-playing .video-poster {
+    opacity: 0;
+  }
+  .video-poster {
+    transition: opacity 0.3s ease;
+  }
+  .video-slide.is-playing .video-icon-play {
+    display: none;
+  }
+  .video-slide.is-playing .video-icon-pause {
+    display: block;
+  }
+  /* Idle control is subtle over the ambient reel but stays operable; it lifts
+     to full opacity on hover/focus for a clearly visible affordance. */
+  .video-slide.is-playing .video-toggle {
+    opacity: 0.55;
+  }
+  .video-toggle:hover,
+  .video-toggle:focus-visible {
+    opacity: 1;
+  }
+</style>

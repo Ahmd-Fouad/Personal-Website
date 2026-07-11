@@ -3,6 +3,54 @@ import type Lenis from 'lenis';
 const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// --- Shared scroll scheduler ------------------------------------------------
+// All scroll-driven visual updates (navbar background state, reading-progress
+// bar, back-to-top visibility) register here so the page uses a single passive
+// scroll listener and coalesces every reaction into one requestAnimationFrame
+// per frame — instead of one listener + one rAF loop per feature.
+type ScrollCallback = () => void;
+const scrollCallbacks = new Set<ScrollCallback>();
+let scrollTicking = false;
+let scrollListenerAttached = false;
+
+const flushScrollCallbacks = () => {
+  scrollTicking = false;
+  scrollCallbacks.forEach((cb) => cb());
+};
+
+const onSharedScroll = () => {
+  if (scrollTicking) return;
+  scrollTicking = true;
+  window.requestAnimationFrame(flushScrollCallbacks);
+};
+
+/**
+ * Register a scroll-driven visual update. It runs once immediately, then at
+ * most once per animation frame while scrolling, sharing one passive listener.
+ */
+function onScroll(callback: ScrollCallback): void {
+  scrollCallbacks.add(callback);
+  if (!scrollListenerAttached) {
+    window.addEventListener('scroll', onSharedScroll, { passive: true });
+    scrollListenerAttached = true;
+  }
+  callback();
+}
+
+/**
+ * Pause nonessential ambient CSS animation while the tab is hidden (a `[data-
+ * doc-hidden]` attribute drives `animation-play-state: paused` in the CSS).
+ */
+export function initVisibilityAnimationPause(): void {
+  const root = document.documentElement;
+  const sync = () => {
+    if (document.hidden) root.setAttribute('data-doc-hidden', '');
+    else root.removeAttribute('data-doc-hidden');
+  };
+  document.addEventListener('visibilitychange', sync);
+  sync();
+}
+
 /** Navbar background on scroll, scrollspy, and smooth anchor navigation. */
 export function initNavbar(lenis: Lenis | null): void {
   const navbar = document.getElementById('navbar');
@@ -38,8 +86,10 @@ export function initNavbar(lenis: Lenis | null): void {
   const setActiveLink = (currentId: string) => {
     if (!currentId) {
       activeId = '';
-      navLinks.forEach((link) => link.classList.remove('active'));
-      mobileNavLinks.forEach((link) => link.classList.remove('active'));
+      [...navLinks, ...mobileNavLinks].forEach((link) => {
+        link.classList.remove('active');
+        link.removeAttribute('aria-current');
+      });
       hideActiveIndicator();
       return;
     }
@@ -53,82 +103,64 @@ export function initNavbar(lenis: Lenis | null): void {
     }
 
     activeId = currentId;
-    navLinks.forEach((link) => {
-      link.classList.toggle('active', link.getAttribute('href') === activeHref);
-    });
-    mobileNavLinks.forEach((link) => {
-      link.classList.toggle('active', link.getAttribute('href') === activeHref);
+    [...navLinks, ...mobileNavLinks].forEach((link) => {
+      const isActive = link.getAttribute('href') === activeHref;
+      link.classList.toggle('active', isActive);
+      if (isActive) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
     });
     moveActiveIndicator(activeIndicatorLink);
   };
 
-  const getActiveSectionId = () => {
-    if (!sections.length) return '';
-
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-    const navHeight = navbar?.getBoundingClientRect().height ?? 0;
-    const activationLine = Math.min(viewportHeight * 0.52, navHeight + viewportHeight * 0.34);
-    const pageBottom = window.scrollY + viewportHeight >= document.documentElement.scrollHeight - 2;
-
-    if (pageBottom) return sections[sections.length - 1]?.id ?? '';
-
-    let currentId = '';
-    let bestDistance = Number.POSITIVE_INFINITY;
-    let bestOffsetTop = Number.NEGATIVE_INFINITY;
-
-    for (const section of sections) {
-      const rect = section.getBoundingClientRect();
-      const visibleTop = Math.max(rect.top, navHeight);
-      const visibleBottom = Math.min(rect.bottom, viewportHeight);
-      if (visibleBottom <= visibleTop) continue;
-
-      const distance =
-        rect.top <= activationLine && rect.bottom >= activationLine
-          ? 0
-          : Math.min(Math.abs(rect.top - activationLine), Math.abs(rect.bottom - activationLine));
-
-      if (
-        distance < bestDistance - 1 ||
-        (Math.abs(distance - bestDistance) <= 1 && section.offsetTop > bestOffsetTop)
-      ) {
-        currentId = section.id;
-        bestDistance = distance;
-        bestOffsetTop = section.offsetTop;
-      }
-    }
-
-    return currentId;
-  };
-
-  const onScroll = () => {
+  // Navbar background state shares the page-wide scroll scheduler. This is a
+  // single `scrollY` read with no layout — the expensive per-frame section
+  // geometry reads have moved to the IntersectionObserver scrollspy below.
+  onScroll(() => {
     if (navbar) navbar.classList.toggle('scrolled', window.scrollY > 100);
-    setActiveLink(getActiveSectionId());
-  };
-
-  // Coalesce scroll events (fired every frame under smooth scrolling) into at
-  // most one layout read per animation frame.
-  let scrollFrame = 0;
-  const onScrollThrottled = () => {
-    if (scrollFrame) return;
-    scrollFrame = window.requestAnimationFrame(() => {
-      scrollFrame = 0;
-      onScroll();
-    });
-  };
-
-  window.addEventListener('scroll', onScrollThrottled, { passive: true });
-  window.addEventListener('resize', () => {
-    if (!activeId) return;
-    window.requestAnimationFrame(() =>
-      moveActiveIndicator(indicatorLinks.find((link) => link.getAttribute('href') === `#${activeId}`)),
-    );
   });
+
+  // Scrollspy via IntersectionObserver: a section becomes active when it
+  // crosses an activation band in the upper third of the viewport, so we never
+  // read every section's `getBoundingClientRect()` on every scroll frame.
+  const sectionVisible = new Map<string, boolean>();
+  const refreshActiveSection = () => {
+    let current = '';
+    for (const section of sections) {
+      if (sectionVisible.get(section.id)) current = section.id;
+    }
+    // Keep the last active section while briefly between bands (e.g. over a
+    // section divider) so the indicator doesn't flicker off.
+    if (current) setActiveLink(current);
+  };
+
+  if ('IntersectionObserver' in window && sections.length) {
+    const spy = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          sectionVisible.set((entry.target as HTMLElement).id, entry.isIntersecting);
+        });
+        refreshActiveSection();
+      },
+      { rootMargin: '-30% 0px -60% 0px', threshold: 0 },
+    );
+    sections.forEach((section) => spy.observe(section));
+  }
+
+  window.addEventListener(
+    'resize',
+    () => {
+      if (!activeId) return;
+      window.requestAnimationFrame(() =>
+        moveActiveIndicator(indicatorLinks.find((link) => link.getAttribute('href') === `#${activeId}`)),
+      );
+    },
+    { passive: true },
+  );
   document.fonts?.ready.then(() => {
     if (activeId) {
       moveActiveIndicator(indicatorLinks.find((link) => link.getAttribute('href') === `#${activeId}`));
     }
   });
-  onScroll();
 
   document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((anchor) => {
     anchor.addEventListener('click', (e) => {
@@ -160,25 +192,11 @@ export function initScrollProgress(): void {
   const bar = document.getElementById('scroll-progress');
   if (!bar) return;
 
-  const update = () => {
+  onScroll(() => {
     const scrollable = document.documentElement.scrollHeight - window.innerHeight;
     const pct = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
     bar.style.width = `${pct}%`;
-  };
-
-  let frame = 0;
-  window.addEventListener(
-    'scroll',
-    () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        update();
-      });
-    },
-    { passive: true },
-  );
-  update();
+  });
 }
 
 /** Back-to-top floating button. */
@@ -197,19 +215,7 @@ export function initScrollTop(lenis: Lenis | null): void {
     else window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   });
 
-  let frame = 0;
-  window.addEventListener(
-    'scroll',
-    () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        update();
-      });
-    },
-    { passive: true },
-  );
-  update();
+  onScroll(update);
 }
 
 let closeMobileMenu = () => {};
@@ -615,10 +621,11 @@ function createLoopedSlider(
   };
 }
 
-/** Horizontal scroll-snap sliders for gallery lightbox and video showreel. */
+/** Horizontal scroll-snap sliders for the gallery lightbox and video showreel. */
 export function initSliders(): void {
   const gallery = createLoopedSlider('gallery-track', 'gallery-prev', 'gallery-next', 'gallery-counter');
-  const video = createLoopedSlider('video-track', 'video-prev', 'video-next');
+  // Prev/next navigation for the showreel (playback is handled by initShowreel).
+  createLoopedSlider('video-track', 'video-prev', 'video-next');
 
   if (gallery) {
     const portfolioModal = document.getElementById('portfolio-modal');
@@ -643,28 +650,146 @@ export function initSliders(): void {
       }
     });
   }
+}
 
-  if (!video) return;
+interface ShowreelItem {
+  slide: HTMLElement;
+  video: HTMLVideoElement;
+  source: HTMLSourceElement;
+  toggle: HTMLButtonElement;
+  label: string;
+  playPending: boolean;
+}
 
-  const videoTrack = document.getElementById('video-track');
-  if (!videoTrack || !('IntersectionObserver' in window)) return;
+/**
+ * Poster-first showreel. The media URL remains in `data-src` until the user
+ * explicitly activates a play control, so initial page load cannot fetch an
+ * MP4. Playback pauses when the reel leaves the viewport, the tab is hidden,
+ * another slide starts, or the user moves to a different slide. Paused media
+ * never auto-resumes.
+ */
+export function initShowreel(): void {
+  const track = document.getElementById('video-track');
+  if (!track) return;
 
-  const videos = Array.from(videoTrack.querySelectorAll('video'));
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        const videoEl = entry.target as HTMLVideoElement;
-        if (entry.isIntersecting) {
-          videoEl.play().catch(() => {
-            /* autoplay may be blocked */
-          });
-        } else {
-          videoEl.pause();
-        }
+  const slides = Array.from(track.querySelectorAll<HTMLElement>('[data-video-slide]'));
+  const items = slides
+    .map((slide): ShowreelItem | null => {
+      const video = slide.querySelector<HTMLVideoElement>('video');
+      const source = video?.querySelector<HTMLSourceElement>('source');
+      const toggle = slide.querySelector<HTMLButtonElement>('[data-video-toggle]');
+      if (!video || !source || !toggle) return null;
+      return {
+        slide,
+        video,
+        source,
+        toggle,
+        label: video.getAttribute('aria-label') ?? 'showreel video',
+        playPending: false,
+      };
+    })
+    .filter((item): item is ShowreelItem => item !== null);
+
+  if (!items.length) return;
+
+  const syncControl = (item: ShowreelItem) => {
+    const playing = !item.video.paused && !item.video.ended;
+    item.slide.classList.toggle('is-playing', playing);
+    item.toggle.setAttribute('aria-label', `${playing ? 'Pause' : 'Play'} ${item.label}`);
+    item.toggle.setAttribute('aria-pressed', String(playing));
+  };
+
+  const pauseAll = (except?: ShowreelItem) => {
+    items.forEach((item) => {
+      if (item !== except && !item.video.paused) item.video.pause();
+    });
+  };
+
+  const playItem = async (item: ShowreelItem) => {
+    if (item.playPending || !item.video.paused) return;
+
+    const mediaUrl = item.source.dataset.src;
+    if (!mediaUrl) {
+      item.toggle.setAttribute('aria-label', `Play unavailable: ${item.label}`);
+      return;
+    }
+
+    pauseAll(item);
+    item.playPending = true;
+    item.toggle.setAttribute('aria-busy', 'true');
+
+    if (!item.source.src) {
+      item.source.src = mediaUrl;
+      item.video.load();
+    }
+
+    try {
+      await item.video.play();
+    } catch {
+      // Network/playback failures leave the poster and retryable Play control.
+      syncControl(item);
+    } finally {
+      item.playPending = false;
+      item.toggle.removeAttribute('aria-busy');
+    }
+  };
+
+  items.forEach((item) => {
+    item.video.addEventListener('play', () => syncControl(item));
+    item.video.addEventListener('pause', () => syncControl(item));
+    item.video.addEventListener('error', () => syncControl(item));
+    item.toggle.addEventListener('click', () => {
+      if (item.video.paused) void playItem(item);
+      else item.video.pause();
+    });
+  });
+
+  // The slide nearest the track's horizontal centre is the "active" one.
+  const activeItem = (): ShowreelItem => {
+    const center = track.scrollLeft + track.clientWidth / 2;
+    let nearest = items[0];
+    let bestDistance = Number.POSITIVE_INFINITY;
+    items.forEach((item) => {
+      const slideCenter = item.slide.offsetLeft + item.slide.clientWidth / 2;
+      const distance = Math.abs(center - slideCenter);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        nearest = item;
+      }
+    });
+    return nearest;
+  };
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) pauseAll();
+        });
+      },
+      { threshold: 0.4 },
+    );
+    observer.observe(track);
+  }
+
+  // Pause when the tab is hidden. Returning never resumes without activation.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseAll();
+  });
+
+  // Swiping to another slide pauses the rest. Coalesced to one layout read per
+  // frame; the newly centred slide remains poster-first until activated.
+  let scrollFrame = 0;
+  track.addEventListener(
+    'scroll',
+    () => {
+      if (scrollFrame) return;
+      scrollFrame = window.requestAnimationFrame(() => {
+        scrollFrame = 0;
+        const active = activeItem();
+        pauseAll(active);
       });
     },
-    { root: videoTrack, threshold: 0.55 },
+    { passive: true },
   );
-
-  videos.forEach((videoEl) => observer.observe(videoEl));
 }

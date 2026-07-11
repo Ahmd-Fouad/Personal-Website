@@ -26,15 +26,21 @@ export function initSmoothScroll(): Lenis | null {
   return lenis;
 }
 
-/** Hero entrance timeline, played once on load. */
+/**
+ * Hero entrance timeline, played once on load.
+ *
+ * The hero portrait (`.hero-img`) and the name heading (`.hero-name`) are the
+ * likely LCP elements, so they are deliberately excluded from this animation:
+ * they paint in the first frame at full opacity with no blur/transform and no
+ * dependency on JavaScript. Only the secondary copy (job-title, tagline, and
+ * action buttons) gets the staggered fade-in, preserving the entrance polish.
+ */
 export function initHeroAnimation(): void {
-  const copyEls = gsap.utils.toArray<HTMLElement>('.hero-el:not(.hero-img)');
-  const heroImage = document.querySelector<HTMLElement>('.hero-img');
-  const els = heroImage ? [...copyEls, heroImage] : copyEls;
-  if (!els.length) return;
+  const copyEls = gsap.utils.toArray<HTMLElement>('.hero-el:not(.hero-img):not(.hero-name)');
+  if (!copyEls.length) return;
 
   if (prefersReducedMotion) {
-    gsap.set(els, { opacity: 1, y: 0 });
+    gsap.set(copyEls, { opacity: 1, y: 0 });
     return;
   }
 
@@ -48,20 +54,6 @@ export function initHeroAnimation(): void {
     stagger: 0.06,
     clearProps: 'filter',
   });
-
-  if (heroImage) {
-    timeline.from(
-      heroImage,
-      {
-        autoAlpha: 0,
-        y: 22,
-        filter: 'blur(6px)',
-        duration: 0.5,
-        clearProps: 'filter',
-      },
-      0.02,
-    );
-  }
 }
 
 /** Lightweight looping hero job-title typewriter with a reduced-motion fallback. */

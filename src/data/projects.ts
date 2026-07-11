@@ -8,11 +8,16 @@ import baniyas from '../assets/images/Baniyas West.png';
 import saadiyat from '../assets/images/Saadiyat-Lagoons.png';
 import balGhaiylam from '../assets/images/Bal Ghaiylam.png';
 import shura from '../assets/images/shura island.png';
+import alSader from '../assets/images/projects/al-sader.png';
+import alJurf from '../assets/images/projects/al-jurf-phase-3b.png';
 
-interface ProjectBase {
+// Every cover image is a local asset run through Astro's image pipeline
+// (astro:assets / Sharp), so `image` is always resolved ImageMetadata.
+export interface Project {
   id: number; // maps to the original data-project id / modal
   title: string;
   modalTitle?: string; // when the modal heading differs from the card
+  image: ImageMetadata;
   location: string;
   companyShort: string; // shown on the card
   company: string; // shown in the modal details
@@ -22,28 +27,12 @@ interface ProjectBase {
   contributions: string[];
 }
 
-export type Project = ProjectBase &
-  (
-    | {
-        image: ImageMetadata;
-        imageWidth?: never;
-        imageHeight?: never;
-      }
-    | {
-        image: string;
-        imageWidth: number;
-        imageHeight: number;
-      }
-  );
-
 // New projects first; previous project order remains preserved.
 export const projects: Project[] = [
   {
     id: 8,
     title: 'Al-Sadr Housing',
-    image: '/assets/projects/al-sader.jpg',
-    imageWidth: 1720,
-    imageHeight: 914,
+    image: alSader,
     location: 'Abu Dhabi, UAE',
     companyShort: 'Innovo Group',
     company: 'Innovo Group',
@@ -63,9 +52,7 @@ export const projects: Project[] = [
   {
     id: 9,
     title: 'Naseem Al-Jurf',
-    image: '/assets/projects/al-jurf-phase-3b.jpg',
-    imageWidth: 1245,
-    imageHeight: 457,
+    image: alJurf,
     location: 'Abu Dhabi, UAE',
     companyShort: 'Innovo Group',
     company: 'Innovo Group',

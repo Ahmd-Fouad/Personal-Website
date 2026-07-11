@@ -7,6 +7,8 @@ import {
   initContactForm,
   initModals,
   initSliders,
+  initShowreel,
+  initVisibilityAnimationPause,
 } from './ui';
 import {
   initSmoothScroll,
@@ -16,7 +18,11 @@ import {
   initSkillBars,
 } from './animations';
 
+let booted = false;
+
 function boot() {
+  if (booted) return;
+  booted = true;
   // Content is visible by default (see .reveal in global.css), so a failure
   // here can't hide the page — this only guards against a partial init from
   // breaking interactivity and surfaces the error for diagnosis.
@@ -33,6 +39,8 @@ function boot() {
     initContactForm();
     initModals(lenis);
     initSliders();
+    initShowreel();
+    initVisibilityAnimationPause();
 
     // Animations
     initHeroAnimation();
