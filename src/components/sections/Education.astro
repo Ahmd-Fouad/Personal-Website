@@ -13,11 +13,11 @@ const { academic, certifications, graduation } = education;
     <div class="mx-auto grid max-w-5xl gap-8 md:grid-cols-2">
       <!-- Academic -->
       <div class="neu-card neu-card-hover reveal rounded-3xl p-6 xl:p-8">
-        <div class="floating mb-2 text-center text-3xl text-primary md:text-start">
+        <div class="floating mb-2 text-center text-3xl text-primary-text md:text-start">
           <Icon name={academic.icon} class="inline-block h-8 w-8" aria-hidden="true" />
         </div>
         <h3 class="mb-2 text-center text-2xl font-bold md:text-start">{academic.title}</h3>
-        <p class="text-lg font-semibold text-primary">{academic.degree}</p>
+        <p class="text-lg font-semibold text-primary-text">{academic.degree}</p>
         <p class="text-text-muted">{academic.meta}</p>
         <p class="mb-4 text-text-muted">{academic.grade}</p>
         <p class="text-text-muted">{academic.description}</p>
@@ -25,7 +25,7 @@ const { academic, certifications, graduation } = education;
 
       <!-- Certifications -->
       <div class="neu-card neu-card-hover reveal rounded-3xl p-6 md:order-2 xl:p-8">
-        <div class="floating-slow mb-2 text-center text-3xl text-primary md:text-start">
+        <div class="floating-slow mb-2 text-center text-3xl text-primary-text md:text-start">
           <Icon name={certifications.icon} class="inline-block h-8 w-8" aria-hidden="true" />
         </div>
         <h3 class="mb-4 text-center text-2xl font-bold md:text-start">{certifications.title}</h3>
@@ -33,7 +33,7 @@ const { academic, certifications, graduation } = education;
           {
             certifications.items.map((item) => (
               <li class="flex items-baseline gap-2">
-                <Icon name="fa6-solid:award" class="shrink-0 text-primary" aria-hidden="true" />
+                <Icon name="fa6-solid:award" class="shrink-0 text-primary-text" aria-hidden="true" />
                 <span>{item}</span>
               </li>
             ))
@@ -43,11 +43,11 @@ const { academic, certifications, graduation } = education;
 
       <!-- Graduation Project -->
       <div class="neu-card neu-card-hover reveal rounded-3xl p-6 md:order-3 md:col-span-2 xl:p-8">
-        <div class="floating mb-2 text-center text-3xl text-primary md:text-start">
+        <div class="floating mb-2 text-center text-3xl text-primary-text md:text-start">
           <Icon name={graduation.icon} class="inline-block h-8 w-8" aria-hidden="true" />
         </div>
         <h3 class="mb-2 text-center text-2xl font-bold md:text-start">{graduation.title}</h3>
-        <p class="text-lg font-semibold text-primary">{graduation.subject}</p>
+        <p class="text-lg font-semibold text-primary-text">{graduation.subject}</p>
         <p class="mb-4 text-text-muted">{graduation.grade}</p>
         <ul class="space-y-2 text-text-muted">
           {
@@ -55,7 +55,7 @@ const { academic, certifications, graduation } = education;
               <li class="flex items-baseline gap-2">
                 <Icon
                   name="fa6-solid:chevron-right"
-                  class="mt-1 h-3 w-3 shrink-0 text-primary"
+                  class="mt-1 h-3 w-3 shrink-0 text-primary-text"
                   aria-hidden="true"
                 />
                 <span>{point}</span>

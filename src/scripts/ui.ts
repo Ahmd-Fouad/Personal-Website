@@ -147,6 +147,10 @@ export function initNavbar(lenis: Lenis | null): void {
           block: 'start',
         });
       }
+      // Move focus to the destination (e.g. the skip link's #main target).
+      // `preventScroll` avoids fighting the smooth scroll above; on targets
+      // without `tabindex`, this is a harmless no-op per the DOM spec.
+      target.focus({ preventScroll: true });
     });
   });
 }
@@ -276,42 +280,68 @@ export function initThemeToggle(): void {
   });
 }
 
-/** Netlify contact form: async submit with button state feedback. */
+/** Netlify contact form: async submit with accessible status feedback. */
 export function initContactForm(): void {
   const form = document.getElementById('contact-form') as HTMLFormElement | null;
-  if (!form) return;
+  const btn = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+  if (!form || !btn) return;
+
+  const status = document.getElementById('contact-form-status');
+  const originalLabel = btn.innerHTML;
+  const REQUEST_TIMEOUT_MS = 15000;
+
+  const setStatus = (message: string, tone: 'polite' | 'assertive') => {
+    if (!status) return;
+    status.setAttribute('role', tone === 'assertive' ? 'alert' : 'status');
+    status.setAttribute('aria-live', tone);
+    status.textContent = message;
+  };
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (!btn) return;
 
-    const original = btn.innerHTML;
     btn.innerHTML = 'Sending...';
     btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    setStatus('Sending your message…', 'polite');
 
     const body = new URLSearchParams(new FormData(form) as unknown as Record<string, string>).toString();
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     fetch(form.action || window.location.href, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
+      signal: controller.signal,
     })
       .then((res) => {
         if (!res.ok) throw new Error('Netlify submission failed.');
         form.reset();
-        btn.innerHTML = 'Message Sent Successfully';
+        btn.innerHTML = 'Message Sent';
+        btn.removeAttribute('aria-busy');
         btn.style.backgroundColor = '#22c55e';
+        setStatus('Your message was sent successfully. Thank you — I will get back to you soon.', 'polite');
       })
       .catch((err) => {
         console.error('Submission Error:', err);
         btn.innerHTML = 'Submission Failed';
+        btn.removeAttribute('aria-busy');
         btn.style.backgroundColor = '#ef4444';
+        const timedOut = err instanceof DOMException && err.name === 'AbortError';
+        setStatus(
+          timedOut
+            ? 'The request timed out. Please check your connection and try again, or email me directly using the address above.'
+            : 'Something went wrong sending your message. Please try again, or email me directly using the address above.',
+          'assertive',
+        );
       })
       .finally(() => {
-        setTimeout(() => {
-          btn.innerHTML = original;
+        window.clearTimeout(timeoutId);
+        window.setTimeout(() => {
+          btn.innerHTML = originalLabel;
           btn.disabled = false;
+          btn.removeAttribute('aria-busy');
           btn.style.backgroundColor = '';
         }, 3000);
       });
@@ -560,12 +590,18 @@ function createLoopedSlider(
     { passive: true },
   );
 
+  // Stop propagation so this key press isn't *also* handled by the
+  // document-level ArrowLeft/ArrowRight listener in `initSliders` below —
+  // without this, focusing the track and pressing an arrow key moved two
+  // slides per press instead of one.
   track.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight') {
       e.preventDefault();
+      e.stopPropagation();
       nextSlide();
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
+      e.stopPropagation();
       prevSlide();
     }
   });

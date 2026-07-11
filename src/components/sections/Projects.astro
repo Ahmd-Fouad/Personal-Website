@@ -24,7 +24,7 @@ const hasPublicImage = (project: Project): project is Extract<Project, { image: 
     <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {
         projects.map((project) => (
-          <article class="neu-card neu-card-hover reveal group cursor-pointer overflow-hidden rounded-2xl">
+          <article class="neu-card neu-card-hover reveal group overflow-hidden rounded-2xl">
             <div class="relative h-56 overflow-hidden">
               {
                 hasPublicImage(project) ? (
@@ -48,7 +48,7 @@ const hasPublicImage = (project: Project): project is Extract<Project, { image: 
                   />
                 )
               }
-              <div class="absolute inset-0 flex items-center justify-center bg-ink/70 opacity-0 backdrop-blur-[2px] transition-opacity duration-300 group-hover:opacity-100">
+              <div class="absolute inset-0 flex items-center justify-center bg-ink/70 opacity-0 backdrop-blur-[2px] transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100">
                 <button
                   type="button"
                   class="neu-btn-accent detail-btn rounded-full px-6 py-3 font-semibold"
@@ -60,7 +60,7 @@ const hasPublicImage = (project: Project): project is Extract<Project, { image: 
               </div>
             </div>
             <div class="p-4 pt-3">
-              <h3 class="mb-2 text-center text-2xl font-semibold text-primary">{project.title}</h3>
+              <h3 class="mb-2 text-center text-2xl font-semibold text-primary-text">{project.title}</h3>
               <dl class="text-[15px]">
                 {[
                   ['Location', project.location],
@@ -69,7 +69,7 @@ const hasPublicImage = (project: Project): project is Extract<Project, { image: 
                   ['Year', project.year],
                 ].map(([label, value]) => (
                   <div class="mb-1 flex gap-2">
-                    <dt class="w-20 shrink-0 font-semibold text-primary">{label}:</dt>
+                    <dt class="w-20 shrink-0 font-semibold text-primary-text">{label}:</dt>
                     <dd class="text-text-muted">{value}</dd>
                   </div>
                 ))}
@@ -100,7 +100,7 @@ const hasPublicImage = (project: Project): project is Extract<Project, { image: 
           </h3>
           <button
             type="button"
-            class="modal-close grid h-9 w-9 place-items-center rounded-full text-primary transition-transform duration-300 hover:scale-110"
+            class="modal-close grid h-9 w-9 place-items-center rounded-full text-primary-text transition-transform duration-300 hover:scale-110"
             aria-label="Close dialog"
           >
             <Icon name="fa6-solid:xmark" class="h-5 w-5" aria-hidden="true" />
@@ -134,7 +134,7 @@ const hasPublicImage = (project: Project): project is Extract<Project, { image: 
           <p class="mb-5 text-text-muted">{project.description}</p>
           <div class="grid gap-6 md:grid-cols-3">
             <div class="md:col-span-1">
-              <h4 class="mb-2 text-xl font-bold text-primary">Project Details</h4>
+              <h4 class="mb-2 text-xl font-bold text-primary-text">Project Details</h4>
               <dl class="space-y-2 text-text-muted">
                 {[
                   ['Location', project.location],
@@ -150,7 +150,7 @@ const hasPublicImage = (project: Project): project is Extract<Project, { image: 
               </dl>
             </div>
             <div class="md:col-span-2">
-              <h4 class="mb-2 text-xl font-bold text-primary">My Role</h4>
+              <h4 class="mb-2 text-xl font-bold text-primary-text">My Role</h4>
               <ul class="list-inside list-disc space-y-1 text-text-muted">
                 {project.contributions.map((item) => (
                   <li>{item}</li>

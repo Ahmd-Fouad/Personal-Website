@@ -151,6 +151,10 @@ export function initScrollReveals(): void {
     return;
   }
 
+  // Content is visible by default (progressive enhancement — see the
+  // `.reveal` rule in global.css); only hide it for the scroll-in animation
+  // once GSAP/ScrollTrigger have actually initialized successfully.
+  document.documentElement.classList.add('js-reveal-ready');
   gsap.set(reveals, { opacity: 0, y: 32, scale: 0.985 });
 
   ScrollTrigger.batch('.reveal', {

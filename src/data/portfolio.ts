@@ -14,17 +14,19 @@ export interface PortfolioTile {
   image: ImageMetadata;
   title: string;
   subtitle: string;
+  /** Filename number (1-28) of this tile's matching photo in the full gallery. */
+  galleryNumber: number;
 }
 
 export const portfolioTiles: PortfolioTile[] = [
-  { image: p1, title: 'Saadiyat Lagoons', subtitle: 'Navisworks Checking' },
-  { image: p2, title: 'BalGhaiylam', subtitle: '2D Shop drawing' },
-  { image: p3, title: 'Saadiyat Lagoons', subtitle: 'Storm Profile' },
-  { image: p4, title: 'Mina Al-Arab', subtitle: 'Utilities Corridor' },
-  { image: p5, title: 'Montage Wadi Safar', subtitle: 'MIDP' },
-  { image: p6, title: 'Montage Wadi Safar', subtitle: 'Utilities Cross Section' },
-  { image: p7, title: 'Dynamo Script', subtitle: 'Piperun From Polylines' },
-  { image: p8, title: 'Jeddah Development', subtitle: 'Turn Images Into 3D' },
+  { image: p1, title: 'Saadiyat Lagoons', subtitle: 'Navisworks Checking', galleryNumber: 1 },
+  { image: p2, title: 'BalGhaiylam', subtitle: '2D Shop drawing', galleryNumber: 10 },
+  { image: p3, title: 'Saadiyat Lagoons', subtitle: 'Storm Profile', galleryNumber: 7 },
+  { image: p4, title: 'Mina Al-Arab', subtitle: 'Utilities Corridor', galleryNumber: 15 },
+  { image: p5, title: 'Montage Wadi Safar', subtitle: 'MIDP', galleryNumber: 14 },
+  { image: p6, title: 'Montage Wadi Safar', subtitle: 'Utilities Cross Section', galleryNumber: 18 },
+  { image: p7, title: 'Dynamo Script', subtitle: 'Piperun From Polylines', galleryNumber: 26 },
+  { image: p8, title: 'Jeddah Development', subtitle: 'Turn Images Into 3D', galleryNumber: 25 },
 ];
 
 // Full gallery (1..28) shown in the "View More" lightbox.
@@ -34,10 +36,24 @@ const galleryModules = import.meta.glob<{ default: ImageMetadata }>(
   { eager: true },
 );
 
-export const galleryImages: ImageMetadata[] = Object.entries(galleryModules)
+const galleryEntries = Object.entries(galleryModules)
   .map(([path, mod]) => {
     const match = path.match(/\/(\d+)\.png$/);
     return { order: match ? parseInt(match[1], 10) : 0, image: mod.default };
   })
-  .sort((a, b) => a.order - b.order)
-  .map((entry) => entry.image);
+  .sort((a, b) => a.order - b.order);
+
+export const galleryImages: ImageMetadata[] = galleryEntries.map((entry) => entry.image);
+
+// Maps a gallery photo's filename number (1-28) to its zero-based index in
+// `galleryImages`, so featured tiles can reference photos by their stable
+// filename rather than a fragile array position.
+const galleryIndexByNumber = new Map(galleryEntries.map((entry, index) => [entry.order, index]));
+
+export function getGalleryIndex(galleryNumber: number): number {
+  const index = galleryIndexByNumber.get(galleryNumber);
+  if (index === undefined) {
+    throw new Error(`Portfolio tile references gallery image #${galleryNumber}, which does not exist.`);
+  }
+  return index;
+}

@@ -2,7 +2,7 @@
 import { Image } from 'astro:assets';
 import { Icon } from 'astro-icon/components';
 import SectionHeading from '../ui/SectionHeading.astro';
-import { portfolioTiles, galleryImages } from '@data/portfolio';
+import { portfolioTiles, galleryImages, getGalleryIndex } from '@data/portfolio';
 
 const portfolioThumbWidths = [320, 480, 640, 800, 960, 1200, 1440, 1600, 1920];
 const portfolioGalleryWidths = [720, 1080, 1440, 1600, 1800, 1920];
@@ -19,12 +19,12 @@ const imageWidths = (image: { width: number }, candidates: number[]) =>
 
     <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {
-        portfolioTiles.map((tile, i) => (
+        portfolioTiles.map((tile) => (
           <figure class="neu-card neu-card-hover reveal group relative h-60 overflow-hidden rounded-3xl border border-border-strong">
             <button
               type="button"
               class="gallery-thumb block h-full w-full cursor-zoom-in overflow-hidden rounded-3xl text-left"
-              data-gallery-open={i}
+              data-gallery-open={getGalleryIndex(tile.galleryNumber)}
               aria-label={`Open ${tile.title} portfolio image`}
               aria-haspopup="dialog"
             >

@@ -56,7 +56,7 @@
 
   --text: #2a231c;
   --text-muted: #4d4234;
-  --text-faint: #6d6152;
+  --text-faint: #675b4c; /* darkened from #6d6152 (4.41:1) to clear 4.5:1 AA on --bg */
 
   --accent: #a07f56;          /* darker tan so it stays visible on cream */
   --accent-text: #6f5636;     /* AA-contrast brown for accented text */
@@ -139,9 +139,12 @@
     color: var(--accent-contrast);
   }
 
-  /* Accessible, visible focus ring on every interactive element */
+  /* Accessible, visible focus ring on every interactive element.
+     Uses --accent-text (not the decorative --accent) because in the light
+     theme --accent only reaches ~2.7:1 against page/card backgrounds,
+     under the 3:1 WCAG minimum for non-text UI indicators. */
   :where(a, button, input, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-text);
     outline-offset: 3px;
     border-radius: 6px;
   }
@@ -218,11 +221,14 @@
     box-shadow: var(--nu-inset);
   }
 
-  /* Primary (accent-filled) button */
+  /* Primary (accent-filled) button.
+     Filled with --accent-text (not the decorative --accent) so its label
+     text clears 4.5:1 against --accent-contrast: in the light theme, the
+     lighter --accent only reaches ~3.4:1, under WCAG AA for normal text. */
   .neu-btn-accent {
-    background: var(--accent);
+    background: var(--accent-text);
     color: var(--accent-contrast);
-    border: 1px solid var(--accent);
+    border: 1px solid var(--accent-text);
     box-shadow: var(--nu-md);
     position: relative;
     overflow: hidden;
@@ -625,15 +631,13 @@
   animation: gradientShift 28s ease infinite;
 }
 
-/* GSAP reveal: elements start hidden, JS reveals them.
-   If JS is disabled, this fallback shows everything. */
-.reveal {
+/* GSAP reveal: content is visible by default so a script failure never
+   hides it. `initScrollReveals()` adds `js-reveal-ready` to <html> only
+   once GSAP/ScrollTrigger have initialized successfully, and only then do
+   `.reveal` elements hide in preparation for their scroll-in animation. */
+.js-reveal-ready .reveal {
   opacity: 0;
   transform: translateY(28px) scale(0.985);
-}
-.no-js .reveal {
-  opacity: 1;
-  transform: none;
 }
 
 /* ---- Reduced motion: honour the user's OS preference ---- */
