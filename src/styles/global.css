@@ -78,6 +78,19 @@
   --nu-inset-sm: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
 }
 
+/* ---- Branded scrollbar (theme-aware; tan thumb on the section band tone) ---- */
+:root,
+[data-theme="dark"] {
+  --scrollbar-track: #100e0c;
+  --scrollbar-thumb: color-mix(in oklab, var(--accent) 45%, var(--surface-lo));
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--accent) 62%, var(--surface-lo));
+}
+[data-theme="light"] {
+  --scrollbar-track: #d8cbb8;
+  --scrollbar-thumb: color-mix(in oklab, var(--accent-text) 62%, var(--surface-lo));
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--accent-text) 78%, var(--surface-lo));
+}
+
 /* ---- Expose tokens as Tailwind utilities (respond to theme via `inline`) ---- */
 @theme inline {
   --color-primary: var(--accent);
@@ -109,6 +122,64 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Firefox scrollbar branding (inherited by every scrollable element).
+     Scoped away from Chromium, where setting scrollbar-color would disable
+     the richer ::-webkit-scrollbar styling below. */
+  @supports not selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+  }
+
+  /* Chromium/Safari scrollbar branding: subtle track, rounded accent thumb.
+     The transparent thumb border insets it into a pill inside the track. */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+    border: 3px solid var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  /* High-contrast / forced-colors users keep their native scrollbars. */
+  @media (forced-colors: active) {
+    html {
+      scrollbar-color: auto;
+    }
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+      width: auto;
+      height: auto;
+      background: revert;
+      border: revert;
+      border-radius: revert;
+    }
+  }
+
+  /* Modal scroll lock: overflow:hidden on the root blocks wheel/keyboard/
+     scrollbar input while keeping the scroll offset; --scrollbar-comp (set by
+     JS to the measured scrollbar width) pads the body and fixed chrome so
+     content does not shift horizontally when the scrollbar disappears. */
+  html.scroll-locked {
+    overflow: hidden;
+  }
+  html.scroll-locked body,
+  html.scroll-locked #navbar {
+    padding-inline-end: var(--scrollbar-comp, 0px);
+  }
+  html.scroll-locked #scroll-top {
+    margin-inline-end: var(--scrollbar-comp, 0px);
   }
   /* Lenis manages scrolling when active; disable native smooth to avoid conflict */
   html.lenis,
@@ -392,8 +463,6 @@
   .hero-img {
     position: relative;
     isolation: isolate;
-    backface-visibility: hidden;
-    will-change: transform, opacity;
   }
 
   .hero-img::before {
@@ -541,6 +610,22 @@
     opacity: 0.98;
     transform: translateY(16px) scale(0.985);
     transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+    /* Cap to the dynamic viewport so the dialog is never taller than what is
+       actually visible (mobile URL-bar collapse included). */
+    max-height: min(92vh, calc(100vh - 2rem));
+  }
+
+  @supports (height: 100dvh) {
+    .project-modal > .neu-card {
+      max-height: min(92dvh, calc(100dvh - 2rem));
+    }
+  }
+
+  /* Fallback scroll region inside a modal for content that genuinely cannot
+     fit (short viewports, high zoom). Chained scrolling is contained so the
+     locked page never moves behind it. */
+  .modal-scroll {
+    overscroll-behavior: contain;
   }
 
   .project-modal.is-open > .neu-card {

@@ -4,13 +4,15 @@ import { Icon } from 'astro-icon/components';
 import SectionHeading from '../ui/SectionHeading.astro';
 import { portfolioTiles, galleryImages, getGalleryIndex } from '@data/portfolio';
 
-const portfolioThumbWidths = [320, 480, 640, 800, 960, 1200, 1440, 1600, 1920];
-const portfolioGalleryWidths = [720, 1080, 1440, 1600, 1800, 1920];
+// Thumb slots top out around 800 CSS px (50vw at 1599px) and lightbox slides
+// at 1000px, so 1600w/1920w cover 2× density; wider variants never get picked.
+const portfolioThumbWidths = [320, 480, 640, 960, 1280, 1600];
+const portfolioGalleryWidths = [720, 1080, 1440, 1920];
 const portfolioImageQuality = 92;
-const imageWidths = (image: { width: number }, candidates: number[]) =>
-  Array.from(new Set([...candidates.filter((width) => width <= image.width), image.width])).sort(
-    (a, b) => a - b,
-  );
+const imageWidths = (image: { width: number }, candidates: number[]) => {
+  const within = candidates.filter((width) => width <= image.width);
+  return within.length ? within : [image.width];
+};
 ---
 
 <section id="portfolio" class="relative py-20">
@@ -81,7 +83,8 @@ const imageWidths = (image: { width: number }, candidates: number[]) =>
 
     <div
       id="gallery-track"
-      class="scrollbar-none flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth"
+      class="scrollbar-none flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-contain"
+      data-modal-scroll
       tabindex="0"
       aria-label="Portfolio gallery slides"
     >

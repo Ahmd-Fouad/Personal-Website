@@ -394,15 +394,34 @@ export function initModals(lenis: Lenis | null): void {
   let lastFocused: HTMLElement | null = null;
   let restoreFocusOnClose = false;
   let closeTimer: number | undefined;
+  let savedScrollY = 0;
 
+  // Scroll lock lives on <html>: overflow:hidden there blocks wheel, keyboard,
+  // and scrollbar dragging while preserving the scroll offset, and the measured
+  // scrollbar width is fed to CSS (--scrollbar-comp pads <body> and the fixed
+  // navbar) so nothing shifts horizontally when the scrollbar disappears.
   const lockScroll = () => {
-    document.body.style.overflow = 'hidden';
+    const root = document.documentElement;
+    if (root.classList.contains('scroll-locked')) return;
+    savedScrollY = window.scrollY;
+    const scrollbarWidth = window.innerWidth - root.clientWidth;
+    root.style.setProperty('--scrollbar-comp', `${scrollbarWidth}px`);
+    root.classList.add('scroll-locked');
     lenis?.stop();
   };
 
   const unlockScroll = () => {
-    document.body.style.overflow = '';
-    lenis?.start();
+    const root = document.documentElement;
+    root.classList.remove('scroll-locked');
+    root.style.removeProperty('--scrollbar-comp');
+    if (lenis) {
+      // Re-sync Lenis's internal position before resuming so the first wheel
+      // tick after closing can't jump back to a stale offset.
+      lenis.scrollTo(savedScrollY, { immediate: true, force: true });
+      lenis.start();
+    } else if (Math.abs(window.scrollY - savedScrollY) > 1) {
+      window.scrollTo({ top: savedScrollY, left: 0, behavior: 'instant' });
+    }
   };
 
   // `click` events fired by Enter/Space on a focused control have detail === 0,
@@ -476,6 +495,19 @@ export function initModals(lenis: Lenis | null): void {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) closeModal();
     });
+
+    // iOS Safari ignores overflow:hidden for touch scrolling, so swipes on the
+    // open modal that start outside a designated scroll region must not reach
+    // the page. Regions marked data-modal-scroll keep their own (contained)
+    // touch scrolling.
+    modal.addEventListener(
+      'touchmove',
+      (e) => {
+        const target = e.target instanceof Element ? e.target : null;
+        if (!target?.closest('[data-modal-scroll]')) e.preventDefault();
+      },
+      { passive: false },
+    );
   });
 
   document.addEventListener('keydown', (e) => {
@@ -657,16 +689,21 @@ interface ShowreelItem {
   video: HTMLVideoElement;
   source: HTMLSourceElement;
   toggle: HTMLButtonElement;
+  muteBtn: HTMLButtonElement | null;
   label: string;
   playPending: boolean;
+  userPaused: boolean;
 }
 
 /**
- * Poster-first showreel. The media URL remains in `data-src` until the user
- * explicitly activates a play control, so initial page load cannot fetch an
- * MP4. Playback pauses when the reel leaves the viewport, the tab is hidden,
- * another slide starts, or the user moves to a different slide. Paused media
- * never auto-resumes.
+ * Poster-first showreel with intelligent autoplay. Media URLs stay in
+ * `data-src` so the initial page load never fetches an MP4; one
+ * IntersectionObserver warms only the active slide's video as the reel nears
+ * the viewport and a second starts muted playback once the reel is
+ * sufficiently visible. Playback pauses when the reel leaves the viewport,
+ * the tab is hidden, or another slide is selected; a slide the user manually
+ * paused never auto-resumes. Autoplay is skipped entirely under
+ * prefers-reduced-motion or Save-Data, leaving the manual controls in charge.
  */
 export function initShowreel(): void {
   const track = document.getElementById('video-track');
@@ -684,13 +721,22 @@ export function initShowreel(): void {
         video,
         source,
         toggle,
+        muteBtn: slide.querySelector<HTMLButtonElement>('[data-video-mute]'),
         label: video.getAttribute('aria-label') ?? 'showreel video',
         playPending: false,
+        userPaused: false,
       };
     })
     .filter((item): item is ShowreelItem => item !== null);
 
   if (!items.length) return;
+
+  const saveData =
+    (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+  const autoplayEligible = () => !prefersReducedMotion() && !saveData;
+
+  // True while the reel is "sufficiently visible" (≥40% in the viewport).
+  let sectionVisible = false;
 
   const syncControl = (item: ShowreelItem) => {
     const playing = !item.video.paused && !item.video.ended;
@@ -699,17 +745,33 @@ export function initShowreel(): void {
     item.toggle.setAttribute('aria-pressed', String(playing));
   };
 
+  const syncMute = (item: ShowreelItem) => {
+    if (!item.muteBtn) return;
+    const muted = item.video.muted;
+    item.slide.classList.toggle('is-muted', muted);
+    item.muteBtn.setAttribute('aria-label', `${muted ? 'Unmute' : 'Mute'} ${item.label}`);
+  };
+
   const pauseAll = (except?: ShowreelItem) => {
     items.forEach((item) => {
       if (item !== except && !item.video.paused) item.video.pause();
     });
   };
 
-  const playItem = async (item: ShowreelItem) => {
+  /** Attach the real media URL and start buffering; safe to call repeatedly. */
+  const prepareItem = (item: ShowreelItem) => {
+    if (item.source.src) return;
+    const mediaUrl = item.source.dataset.src;
+    if (!mediaUrl) return;
+    item.source.src = mediaUrl;
+    item.video.preload = 'auto';
+    item.video.load();
+  };
+
+  const playItem = async (item: ShowreelItem, viaAutoplay: boolean) => {
     if (item.playPending || !item.video.paused) return;
 
-    const mediaUrl = item.source.dataset.src;
-    if (!mediaUrl) {
+    if (!item.source.dataset.src) {
       item.toggle.setAttribute('aria-label', `Play unavailable: ${item.label}`);
       return;
     }
@@ -718,15 +780,21 @@ export function initShowreel(): void {
     item.playPending = true;
     item.toggle.setAttribute('aria-busy', 'true');
 
-    if (!item.source.src) {
-      item.source.src = mediaUrl;
-      item.video.load();
+    if (viaAutoplay) {
+      // Autoplay must begin muted; the attribute also covers the window
+      // between load() and the play() promise settling.
+      item.video.muted = true;
+      item.video.autoplay = true;
+      syncMute(item);
     }
+    prepareItem(item);
 
     try {
       await item.video.play();
     } catch {
-      // Network/playback failures leave the poster and retryable Play control.
+      // Autoplay rejection or a network failure: clear the autoplay intent and
+      // leave the poster with a usable, retryable Play control.
+      item.video.autoplay = false;
       syncControl(item);
     } finally {
       item.playPending = false;
@@ -736,12 +804,27 @@ export function initShowreel(): void {
 
   items.forEach((item) => {
     item.video.addEventListener('play', () => syncControl(item));
-    item.video.addEventListener('pause', () => syncControl(item));
-    item.video.addEventListener('error', () => syncControl(item));
-    item.toggle.addEventListener('click', () => {
-      if (item.video.paused) void playItem(item);
-      else item.video.pause();
+    item.video.addEventListener('pause', () => {
+      // Any pause cancels pending autoplay intent so buffered data arriving
+      // later cannot restart a video the user (or viewport exit) stopped.
+      item.video.autoplay = false;
+      syncControl(item);
     });
+    item.video.addEventListener('error', () => syncControl(item));
+    item.video.addEventListener('volumechange', () => syncMute(item));
+    item.toggle.addEventListener('click', () => {
+      if (item.video.paused) {
+        item.userPaused = false;
+        void playItem(item, false);
+      } else {
+        item.userPaused = true;
+        item.video.pause();
+      }
+    });
+    item.muteBtn?.addEventListener('click', () => {
+      item.video.muted = !item.video.muted;
+    });
+    syncMute(item);
   });
 
   // The slide nearest the track's horizontal centre is the "active" one.
@@ -760,29 +843,60 @@ export function initShowreel(): void {
     return nearest;
   };
 
+  /** Start muted playback of the active slide when every gate allows it. */
+  const maybeAutoplay = () => {
+    if (!sectionVisible || document.hidden || !autoplayEligible()) return;
+    const active = activeItem();
+    if (active.userPaused) return;
+    void playItem(active, true);
+  };
+
   if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(
+    // Warm the active video slightly before the reel scrolls into view so
+    // autoplay can start without a buffering stall. Inactive slides stay cold.
+    if (autoplayEligible()) {
+      const warm = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) prepareItem(activeItem());
+          });
+        },
+        { rootMargin: '25% 0px' },
+      );
+      warm.observe(track);
+    }
+
+    const player = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (!entry.isIntersecting) pauseAll();
+          sectionVisible = entry.isIntersecting && entry.intersectionRatio >= 0.4;
+          if (sectionVisible) maybeAutoplay();
+          // Only a full exit pauses — between 0–40% visibility playback
+          // continues, so there is no flicker at the threshold edge.
+          else if (!entry.isIntersecting) pauseAll();
         });
       },
-      { threshold: 0.4 },
+      { threshold: [0, 0.4] },
     );
-    observer.observe(track);
+    player.observe(track);
   }
 
-  // Pause when the tab is hidden. Returning never resumes without activation.
+  // Hidden tab pauses playback; returning resumes only slides that were
+  // auto-paused (a manual pause is remembered via userPaused).
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pauseAll();
+    else maybeAutoplay();
   });
 
-  // Swiping to another slide pauses the rest. Coalesced to one layout read per
-  // frame; the newly centred slide remains poster-first until activated.
+  // Swiping to another slide pauses the rest immediately, then the newly
+  // centred slide may autoplay (muted) once the scroll settles.
   let scrollFrame = 0;
+  let settleTimer: number | undefined;
   track.addEventListener(
     'scroll',
     () => {
+      if (settleTimer) window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(maybeAutoplay, 180);
       if (scrollFrame) return;
       scrollFrame = window.requestAnimationFrame(() => {
         scrollFrame = 0;

@@ -17,7 +17,7 @@ const desktopLinks = navLinks.filter((l) => l.href !== '#contact' && l.href !== 
 
 <nav
   id="navbar"
-  class="fixed left-0 top-0 z-50 w-full transition-all duration-300"
+  class="fixed left-0 top-0 z-50 w-full"
   aria-label="Primary"
 >
   <div class="container-x flex items-center justify-between py-4">
@@ -90,6 +90,17 @@ const desktopLinks = navLinks.filter((l) => l.href !== '#contact' && l.href !== 
 </nav>
 
 <style>
+  /* Transition only the scrolled-state visuals. Layout properties must apply
+     instantly: the modal scroll lock pads the navbar to compensate for the
+     vanishing scrollbar, and animating that padding would smear the
+     compensation into a visible slide. */
+  #navbar {
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      box-shadow 0.3s ease,
+      backdrop-filter 0.3s ease;
+  }
   #navbar.scrolled {
     background-color: color-mix(in oklab, var(--bg) 88%, transparent);
     backdrop-filter: blur(14px);

@@ -44,6 +44,15 @@ import { videoSlides } from '@data/education';
             <Icon name="fa6-solid:play" class="video-icon-play h-6 w-6 ps-0.5" aria-hidden="true" />
             <Icon name="fa6-solid:pause" class="video-icon-pause hidden h-6 w-6" aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            class="video-mute absolute bottom-4 end-4 z-30 h-10 w-10 place-items-center rounded-full bg-slate/70 text-primary shadow-lg transition-transform duration-300 hover:scale-105 hover:bg-slate"
+            data-video-mute
+            aria-label={`Unmute ${slide.label}`}
+          >
+            <Icon name="fa6-solid:volume-xmark" class="video-icon-muted h-4 w-4" aria-hidden="true" />
+            <Icon name="fa6-solid:volume-high" class="video-icon-sound hidden h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
       ))
     }
@@ -83,13 +92,30 @@ import { videoSlides } from '@data/education';
   .video-slide.is-playing .video-icon-pause {
     display: block;
   }
-  /* Idle control is subtle over the ambient reel but stays operable; it lifts
-     to full opacity on hover/focus for a clearly visible affordance. */
-  .video-slide.is-playing .video-toggle {
+  /* Idle controls are subtle over the ambient reel but stay operable; they
+     lift to full opacity on hover/focus for a clearly visible affordance. */
+  .video-slide.is-playing .video-toggle,
+  .video-slide.is-playing .video-mute {
     opacity: 0.55;
   }
   .video-toggle:hover,
-  .video-toggle:focus-visible {
+  .video-toggle:focus-visible,
+  .video-mute:hover,
+  .video-mute:focus-visible {
     opacity: 1;
+  }
+  /* The mute toggle only matters during playback; it appears with the pause
+     control and swaps its icon with the slide's is-muted state (JS-synced). */
+  .video-mute {
+    display: none;
+  }
+  .video-slide.is-playing .video-mute {
+    display: grid;
+  }
+  .video-slide:not(.is-muted) .video-icon-muted {
+    display: none;
+  }
+  .video-slide:not(.is-muted) .video-icon-sound {
+    display: block;
   }
 </style>

@@ -4,13 +4,15 @@ import { Icon } from 'astro-icon/components';
 import SectionHeading from '../ui/SectionHeading.astro';
 import { projects } from '@data/projects';
 
-const projectCardWidths = [320, 480, 640, 800, 960, 1200, 1600, 2048];
-const projectModalWidths = [640, 900, 1200, 1440, 1600, 2048];
+// Card slot tops out around 767 CSS px (100vw below md) and the modal slot at
+// 800px, so 1600w covers 2× density on both; wider variants are never selected.
+const projectCardWidths = [320, 480, 640, 960, 1280, 1600];
+const projectModalWidths = [640, 800, 1200, 1600];
 const projectImageQuality = 92;
-const imageWidths = (image: { width: number }, candidates: number[]) =>
-  Array.from(new Set([...candidates.filter((width) => width <= image.width), image.width])).sort(
-    (a, b) => a - b,
-  );
+const imageWidths = (image: { width: number }, candidates: number[]) => {
+  const within = candidates.filter((width) => width <= image.width);
+  return within.length ? within : [image.width];
+};
 ---
 
 <section id="projects" class="relative bg-bg-2/40 py-20">
@@ -87,8 +89,8 @@ const imageWidths = (image: { width: number }, candidates: number[]) =>
       aria-modal="true"
       aria-labelledby={`project-modal-title-${project.id}`}
     >
-      <div class="neu-card flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl">
-        <header class="flex items-center justify-between border-b border-border px-6 py-4 sm:px-8">
+      <div class="neu-card flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl">
+        <header class="flex items-center justify-between border-b border-border px-6 py-3 sm:px-8">
           <h3 id={`project-modal-title-${project.id}`} class="text-2xl font-bold">
             {project.modalTitle ?? project.title}
           </h3>
@@ -100,7 +102,13 @@ const imageWidths = (image: { width: number }, candidates: number[]) =>
             <Icon name="fa6-solid:xmark" class="h-5 w-5" aria-hidden="true" />
           </button>
         </header>
-        <div class="overflow-y-auto px-6 py-5">
+        <div
+          class="modal-scroll min-h-0 overflow-y-auto px-6 py-4"
+          data-modal-scroll
+          tabindex="0"
+          role="region"
+          aria-label={`${project.modalTitle ?? project.title} details`}
+        >
           <div class="mb-4 overflow-hidden rounded-2xl">
             <Image
               src={project.image}
@@ -109,10 +117,10 @@ const imageWidths = (image: { width: number }, candidates: number[]) =>
               sizes="(min-width: 768px) 800px, 100vw"
               quality={projectImageQuality}
               loading="lazy"
-              class="h-64 w-full object-cover sm:h-72"
+              class="h-[clamp(10rem,32vh,18rem)] w-full object-cover"
             />
           </div>
-          <p class="mb-5 text-text-muted">{project.description}</p>
+          <p class="mb-4 text-text-muted">{project.description}</p>
           <div class="grid gap-6 md:grid-cols-3">
             <div class="md:col-span-1">
               <h4 class="mb-2 text-xl font-bold text-primary-text">Project Details</h4>
