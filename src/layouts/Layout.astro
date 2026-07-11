@@ -1,33 +1,46 @@
 ---
 import '../styles/global.css';
-import { site, contact } from '@data/site';
+import { site, contact, socials } from '@data/site';
 
 interface Props {
   title?: string;
   description?: string;
 }
 
-const { title = site.metaTitle, description = site.description } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://ahmed-fouad.netlify.app').href;
-const ogImage = new URL('/og-image.jpg', Astro.site ?? 'https://ahmed-fouad.netlify.app').href;
+const { title = site.title, description = site.description } = Astro.props;
+const siteUrl = Astro.site ?? new URL(site.url);
+const canonical = new URL(Astro.url.pathname, siteUrl).href;
+const ogImage = new URL('/og-image.jpg', siteUrl).href;
 const ogImageAlt = `${site.author} — ${site.role}`;
 
-// JSON-LD structured data (Person) — improves SEO / rich results.
+// Verified Person data is the main entity on the portfolio. Other routes use
+// a simple WebPage schema so they do not claim to be the person's profile URL.
 const personSchema = {
-  '@context': 'https://schema.org',
   '@type': 'Person',
   name: site.name,
   jobTitle: site.role,
   email: `mailto:${contact.email}`,
   telephone: contact.phone,
-  address: { '@type': 'PostalAddress', addressLocality: contact.location },
-  url: canonical,
-  sameAs: [
-    'https://www.linkedin.com/in/ahmd-osman',
-    'https://github.com/Ahmd-Fouad',
-    'https://x.com/Ahmd_0sman',
-  ],
+  address: { '@type': 'PostalAddress', addressLocality: 'Abu Dhabi', addressCountry: 'AE' },
+  url: `${site.url}/`,
+  sameAs: socials.map((social) => social.href),
 };
+const structuredData = Astro.url.pathname === '/'
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'ProfilePage',
+      name: title,
+      description,
+      url: canonical,
+      mainEntity: personSchema,
+    }
+  : {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: title,
+      description,
+      url: canonical,
+    };
 ---
 
 <!doctype html>
@@ -63,7 +76,7 @@ const personSchema = {
     <meta name="twitter:image" content={ogImage} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
 
-    <title>{site.title}</title>
+    <title>{title}</title>
 
     <!-- Fonts: preconnect + async stylesheet so text renders before the font
          CSS arrives (display=swap upgrades it in place). -->
@@ -87,7 +100,7 @@ const personSchema = {
       />
     </noscript>
 
-    <script is:inline type="application/ld+json" set:html={JSON.stringify(personSchema)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(structuredData)} />
 
     <!-- Theme + JS-enable: runs before paint to avoid a flash of the wrong theme -->
     <script is:inline>

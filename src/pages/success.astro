@@ -1,0 +1,21 @@
+---
+import Layout from '@layouts/Layout.astro';
+
+const title = 'Message sent | Ahmed Fouad';
+const description = 'Your message was submitted successfully. Return to Ahmed Fouad’s infrastructure BIM portfolio.';
+---
+
+<Layout title={title} description={description}>
+  <main id="main" tabindex="-1" class="hero-gradient flex min-h-screen items-center justify-center px-6 py-20">
+    <section class="neu-card relative z-10 mx-auto max-w-2xl rounded-3xl p-8 text-center sm:p-12" aria-labelledby="success-title">
+      <p class="mb-3 font-semibold uppercase tracking-widest text-primary-text">Thank you</p>
+      <h1 id="success-title" class="font-heading text-3xl font-bold sm:text-4xl">Your message was sent</h1>
+      <p class="mx-auto mt-5 max-w-xl text-text-muted">
+        Your submission has been received. I’ll review it and get back to you as soon as possible.
+      </p>
+      <a href="/" class="neu-btn mt-8 inline-flex rounded-full px-7 py-3 font-semibold">
+        Back to portfolio
+      </a>
+    </section>
+  </main>
+</Layout>

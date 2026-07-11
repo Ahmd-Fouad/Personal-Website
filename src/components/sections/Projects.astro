@@ -32,7 +32,7 @@ const imageWidths = (image: { width: number }, candidates: number[]) =>
                 loading="lazy"
                 class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
-              <div class="absolute inset-0 flex items-center justify-center bg-ink/70 opacity-0 backdrop-blur-[2px] transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100">
+              <div data-modal-overlay class="absolute inset-0 flex items-center justify-center bg-ink/70 opacity-0 backdrop-blur-[2px] transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100">
                 <button
                   type="button"
                   class="neu-btn-accent detail-btn rounded-full px-6 py-3 font-semibold"
@@ -58,6 +58,16 @@ const imageWidths = (image: { width: number }, candidates: number[]) =>
                   </div>
                 ))}
               </dl>
+              <noscript>
+                <details class="mt-4 border-t border-border pt-3 text-sm">
+                  <summary class="cursor-pointer font-semibold text-primary-text">Project details</summary>
+                  <p class="mt-3 text-text-muted">{project.description}</p>
+                  <h4 class="mb-1 mt-3 font-semibold text-primary-text">My Role</h4>
+                  <ul class="list-inside list-disc space-y-1 text-text-muted">
+                    {project.contributions.map((item) => <li>{item}</li>)}
+                  </ul>
+                </details>
+              </noscript>
             </div>
           </article>
         ))

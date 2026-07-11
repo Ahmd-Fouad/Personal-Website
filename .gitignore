@@ -9,14 +9,25 @@ node_modules/
 # logs
 npm-debug.log*
 pnpm-debug.log*
+*.log
 
-# environment
-.env
-.env.production
+# environment (documented examples may be committed)
+.env*
+!.env.example
 
 # editor / os
 .vscode/
+.idea/
 .DS_Store
+
+# local agent/runtime and test artifacts
+.claude/
+.agents/
+.netlify/
+.cache/
+coverage/
+playwright-report/
+test-results/
 
 # archived legacy site (kept locally for reference, not deployed)
 _original/

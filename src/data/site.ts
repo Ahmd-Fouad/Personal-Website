@@ -5,10 +5,10 @@ export const site = {
   name: 'Ahmed Osman Fouad',
   shortName: 'A.FOUAD',
   role: 'Infrastructure BIM Engineer',
-  title: 'Ahmed Fouad | Infrastructure Engineer',
-  metaTitle: 'Ahmed Fouad | Infrastructure BIM and Design Engineer',
+  title: 'Ahmed Fouad | Infrastructure BIM Engineer',
+  url: 'https://ahmed-fouad.netlify.app',
   description:
-    'Infrastructure Design and BIM Engineer with 3+ years of GCC experience in utility network design, road works, clash detection, and BIM workflows. Skilled in Civil 3D, Revit, Dynamo, and ISO 19650 compliance.',
+    'Infrastructure Design and BIM Engineer with GCC experience in utility network design, road works, clash detection, and BIM workflows. Skilled in Civil 3D, Revit, Dynamo, and ISO 19650 compliance.',
   keywords:
     'Ahmed Fouad, Civil Engineer, BIM, Wet Utilities, Water Treatment, Sewage Treatment, Dynamo Scripts, Civil 3D, Revit, Infrastructure Design, ACC, AutoCAD, UAE, GCC Projects, BIM Roads, BIM Infrastructure',
   author: 'Ahmed Fouad',

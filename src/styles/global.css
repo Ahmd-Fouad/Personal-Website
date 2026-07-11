@@ -650,6 +650,21 @@ html[data-doc-hidden] .soft-pulse {
   transform: translateY(28px) scale(0.985);
 }
 
+/* Progressive enhancement: when scripting is unavailable, expose the mobile
+   navigation directly and remove inert modal affordances. Project cards render
+   their detail content inside <noscript> blocks. */
+@media (max-width: 1023.98px) {
+  html.no-js #mobile-menu {
+    display: block;
+  }
+  html.no-js #mobile-menu-btn {
+    display: none;
+  }
+}
+html.no-js [data-modal-overlay] {
+  display: none;
+}
+
 /* ---- Reduced motion: honour the user's OS preference ---- */
 @media (prefers-reduced-motion: reduce) {
   *,
