@@ -11,10 +11,10 @@ const heroImageWidths = [212, 240, 320, 360, 424, 480, 640, 720, 848, 960, 1122]
 
 <section
   id="home"
-  class="hero-gradient relative flex min-h-screen items-center justify-center overflow-hidden"
+  class="hero-gradient relative flex items-center justify-center overflow-hidden"
 >
   <div
-    class="hero-inner container-x z-10 flex flex-col-reverse items-center justify-center gap-10 py-28 text-center 992:flex-row 992:justify-between 992:gap-12 992:py-24 992:text-start"
+    class="hero-inner container-x z-10 flex flex-col-reverse items-center justify-center text-center 992:flex-row 992:justify-between 992:text-start"
   >
     <div class="hero-copy w-full max-w-[680px] 992:flex-1">
       <h1
@@ -68,7 +68,7 @@ const heroImageWidths = [212, 240, 320, 360, 424, 480, 640, 720, 848, 960, 1122]
     </div>
 
     <div
-      class="hero-el hero-img w-[min(64vw,13.25rem)] shrink-0 480:w-[15rem] 992:w-[20rem] lg:w-[22.5rem] xl:w-[26.5rem] 2xl:w-[30rem]"
+      class="hero-el hero-img w-[min(64vw,13.25rem,27svh)] shrink-0 480:w-[min(15rem,30svh)] 992:w-[min(20rem,48svh)] lg:w-[min(22.5rem,50svh)] xl:w-[min(26.5rem,56svh)] 2xl:w-[min(30rem,56svh)]"
     >
       <div class="hero-img-frame">
       <Image
@@ -89,7 +89,7 @@ const heroImageWidths = [212, 240, 320, 360, 424, 480, 640, 720, 848, 960, 1122]
 
   <a
     href="#about"
-    class="absolute bottom-10 left-1/2 z-10 -translate-x-1/2 animate-bounce text-text transition-transform duration-300 hover:scale-125 hover:text-primary-text"
+    class="absolute bottom-[clamp(0.85rem,3svh,2.5rem)] left-1/2 z-10 -translate-x-1/2 animate-bounce text-text transition-transform duration-300 hover:scale-125 hover:text-primary-text"
     aria-label="Scroll to About section"
   >
     <Icon name="fa6-solid:chevron-down" class="h-6 w-6" aria-hidden="true" />

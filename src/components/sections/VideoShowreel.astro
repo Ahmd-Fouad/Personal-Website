@@ -53,6 +53,24 @@ import { videoSlides } from '@data/education';
             <Icon name="fa6-solid:volume-xmark" class="video-icon-muted h-4 w-4" aria-hidden="true" />
             <Icon name="fa6-solid:volume-high" class="video-icon-sound hidden h-4 w-4" aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            class="video-fs absolute bottom-4 end-16 z-30 grid h-10 w-10 place-items-center rounded-full bg-slate/70 text-primary shadow-lg transition-transform duration-300 hover:scale-105 hover:bg-slate"
+            data-video-fullscreen
+            aria-label={`Enter full screen: ${slide.label}`}
+          >
+            <Icon name="fa6-solid:expand" class="video-icon-expand h-4 w-4" aria-hidden="true" />
+            <Icon name="fa6-solid:compress" class="video-icon-compress hidden h-4 w-4" aria-hidden="true" />
+          </button>
+          {/* Small always-accessible status line; JS fills it while media is
+              loading or when a source fails, so the slide is never silent. */}
+          <p
+            class="video-status absolute bottom-4 start-4 z-30 rounded-full bg-slate/80 px-3 py-1 text-xs font-semibold text-cream"
+            data-video-status
+            role="status"
+            hidden
+          >
+          </p>
         </div>
       ))
     }
@@ -78,9 +96,10 @@ import { videoSlides } from '@data/education';
 <div class="section-divider"></div>
 
 <style>
-  /* Once a slide is playing, hide its poster and swap the control to a pause
-     icon. Kept in CSS so state is a single class toggle from JS. */
-  .video-slide.is-playing .video-poster {
+  /* The poster leaves only when playback has an actual frame to show
+     (is-playing + has-frame, both JS-synced), so a buffering video never
+     exposes a blank/black box. Kept in CSS so state is a class toggle. */
+  .video-slide.is-playing.has-frame .video-poster {
     opacity: 0;
   }
   .video-poster {
@@ -92,17 +111,56 @@ import { videoSlides } from '@data/education';
   .video-slide.is-playing .video-icon-pause {
     display: block;
   }
+  /* Subtle loading state around the existing play/pause control while the
+     source is buffering (JS toggles is-waiting on the slide). */
+  .video-toggle::after {
+    content: "";
+    position: absolute;
+    inset: -0.4rem;
+    border-radius: 999px;
+    border: 3px solid transparent;
+    border-top-color: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  .video-slide.is-waiting .video-toggle::after {
+    opacity: 1;
+    animation: videoSpin 0.9s linear infinite;
+  }
+  @keyframes videoSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
   /* Idle controls are subtle over the ambient reel but stay operable; they
      lift to full opacity on hover/focus for a clearly visible affordance. */
   .video-slide.is-playing .video-toggle,
-  .video-slide.is-playing .video-mute {
+  .video-slide.is-playing .video-mute,
+  .video-slide.is-playing .video-fs {
     opacity: 0.55;
   }
   .video-toggle:hover,
   .video-toggle:focus-visible,
   .video-mute:hover,
-  .video-mute:focus-visible {
+  .video-mute:focus-visible,
+  .video-fs:hover,
+  .video-fs:focus-visible {
     opacity: 1;
+  }
+  /* Native fullscreen on the slide keeps the custom controls overlaid; the
+     video letterboxes instead of cropping while it fills the screen. */
+  .video-slide:fullscreen {
+    background: #000;
+  }
+  .video-slide:fullscreen .video-el {
+    object-fit: contain;
+  }
+  .video-slide.is-fullscreen .video-icon-expand {
+    display: none;
+  }
+  .video-slide.is-fullscreen .video-icon-compress {
+    display: block;
   }
   /* The mute toggle only matters during playback; it appears with the pause
      control and swaps its icon with the slide's is-muted state (JS-synced). */

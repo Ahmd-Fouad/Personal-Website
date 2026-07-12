@@ -15,8 +15,8 @@ const imageWidths = (image: { width: number }, candidates: number[]) => {
 };
 ---
 
-<section id="projects" class="relative bg-bg-2/40 py-20">
-  <div class="section-divider mb-16"></div>
+<section id="projects" class="section-pad relative bg-bg-2/40">
+  <div class="section-divider absolute inset-x-0 top-0"></div>
   <div class="container-x">
     <SectionHeading lead="Featured" highlight="Projects" />
 
@@ -76,7 +76,7 @@ const imageWidths = (image: { width: number }, candidates: number[]) => {
       }
     </div>
   </div>
-  <div class="section-divider mt-16"></div>
+  <div class="section-divider absolute inset-x-0 bottom-0"></div>
 </section>
 
 <!-- Project detail modals -->
@@ -109,7 +109,13 @@ const imageWidths = (image: { width: number }, candidates: number[]) => {
           role="region"
           aria-label={`${project.modalTitle ?? project.title} details`}
         >
-          <div class="mb-4 overflow-hidden rounded-2xl">
+          {/* Progressive cover: the already-cached card image is shown as an
+              instant preview (JS fills data-modal-preview from the trigger's
+              card <img>) while the modal-sized candidate loads underneath and
+              fades in once decoded. The final image's fixed height keeps the
+              box stable in every state. */}
+          <div class="modal-media relative mb-4 overflow-hidden rounded-2xl" data-modal-media>
+            <img data-modal-preview alt="" aria-hidden="true" class="modal-media-preview" hidden />
             <Image
               src={project.image}
               alt={`${project.title} cover`}
@@ -117,7 +123,9 @@ const imageWidths = (image: { width: number }, candidates: number[]) => {
               sizes="(min-width: 768px) 800px, 100vw"
               quality={projectImageQuality}
               loading="lazy"
-              class="h-[clamp(10rem,32vh,18rem)] w-full object-cover"
+              decoding="async"
+              data-modal-final
+              class="modal-media-final h-[clamp(10rem,32vh,18rem)] w-full object-cover"
             />
           </div>
           <p class="mb-4 text-text-muted">{project.description}</p>

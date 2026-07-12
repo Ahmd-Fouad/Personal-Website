@@ -4,8 +4,8 @@ import SectionHeading from '../ui/SectionHeading.astro';
 import { skillGroups } from '@data/skills';
 ---
 
-<section id="skills" class="relative bg-bg-2/40 py-20">
-  <div class="section-divider mb-16"></div>
+<section id="skills" class="section-pad relative bg-bg-2/40">
+  <div class="section-divider absolute inset-x-0 top-0"></div>
   <div class="container-x">
     <SectionHeading lead="Technical" highlight="Skills" />
 
@@ -35,5 +35,5 @@ import { skillGroups } from '@data/skills';
       }
     </div>
   </div>
-  <div class="section-divider mt-16"></div>
+  <div class="section-divider absolute inset-x-0 bottom-0"></div>
 </section>

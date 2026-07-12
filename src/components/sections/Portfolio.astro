@@ -15,7 +15,7 @@ const imageWidths = (image: { width: number }, candidates: number[]) => {
 };
 ---
 
-<section id="portfolio" class="relative py-20">
+<section id="portfolio" class="section-pad relative">
   <div class="container-x">
     <SectionHeading lead="Visual" highlight="Portfolio" />
 
@@ -91,16 +91,27 @@ const imageWidths = (image: { width: number }, candidates: number[]) => {
       {
         galleryImages.map((img, i) => (
           <div class="flex h-full w-full shrink-0 snap-center items-center justify-center p-3 sm:p-6">
-            <Image
-              src={img}
-              alt={`Portfolio work ${i + 1}`}
-              widths={imageWidths(img, portfolioGalleryWidths)}
-              sizes="(min-width: 1024px) 1000px, 100vw"
-              quality={portfolioImageQuality}
-              loading="lazy"
-              decoding="async"
-              class="max-h-full max-w-full rounded-xl object-contain shadow-2xl shadow-ink/30"
-            />
+            {/* Progressive slide: opening from a grid tile paints the cached
+                thumbnail instantly (JS fills data-gallery-preview) while the
+                enlarged candidate loads and fades in after decode. A subtle
+                spinner covers slides that have no thumbnail to reuse. */}
+            <div
+              class="gallery-media relative flex h-full w-full items-center justify-center"
+              data-gallery-media
+            >
+              <img data-gallery-preview alt="" aria-hidden="true" class="gallery-media-preview" hidden />
+              <Image
+                src={img}
+                alt={`Portfolio work ${i + 1}`}
+                widths={imageWidths(img, portfolioGalleryWidths)}
+                sizes="(min-width: 1024px) 1000px, 100vw"
+                quality={portfolioImageQuality}
+                loading="lazy"
+                decoding="async"
+                data-gallery-final
+                class="gallery-media-final max-h-full max-w-full rounded-xl object-contain shadow-2xl shadow-ink/30"
+              />
+            </div>
           </div>
         ))
       }

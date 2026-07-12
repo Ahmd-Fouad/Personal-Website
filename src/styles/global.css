@@ -78,6 +78,24 @@
   --nu-inset-sm: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
 }
 
+/* ---- Shared layout rhythm ----
+   --nav-h is the single source of truth for the fixed navbar's height: the CSS
+   fallback matches the rendered bar and JS keeps it synced to the measured
+   height. Anchor scrolling (native scroll-padding-top and the Lenis offset)
+   and the section paddings below all derive from it, so a navbar link always
+   lands a section title just below the bar instead of stacking several
+   independent offsets. Section paddings scale with small-viewport height
+   (svh) so short laptops and phones get the compact end of each range. */
+:root {
+  --nav-h: 4.5rem;
+  /* navbar → section title: ~20-32px */
+  --section-pad-top: clamp(1.25rem, 3svh, 2rem);
+  /* last content → next section boundary: ~44-72px */
+  --section-pad-bottom: clamp(2.75rem, 7svh, 4.5rem);
+  /* section title → first content block: ~24-44px */
+  --heading-gap: clamp(1.5rem, 4svh, 2.75rem);
+}
+
 /* ---- Branded scrollbar (theme-aware; tan thumb on the section band tone) ---- */
 :root,
 [data-theme="dark"] {
@@ -122,6 +140,10 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    /* Native anchor navigation (initial #hash load, back/forward, no-JS,
+       reduced-motion fallback) lands targets below the fixed navbar. The
+       Lenis path applies the same measured offset in JS. */
+    scroll-padding-top: var(--nav-h, 4.5rem);
   }
 
   /* Firefox scrollbar branding (inherited by every scrollable element).
@@ -410,8 +432,19 @@
     .container-x { padding-inline: 2.25rem; }
   }
 
+  /* The hero must fit the first viewport on common laptops and phones, where
+     mobile browser chrome makes the *small* viewport (svh) the real budget.
+     Vertical padding, gaps, and media size therefore scale with svh (never
+     width alone): the top guard clears the fixed navbar, the bottom guard
+     reserves room for the scroll indicator, and content stays centered in
+     between. On exceptionally short screens the min-block-size lets the page
+     scroll naturally rather than crushing content further. */
   .hero-inner {
     min-block-size: 100svh;
+    gap: clamp(1.4rem, 3.2svh, 2.5rem);
+    padding-block:
+      calc(var(--nav-h, 4.5rem) + clamp(0.5rem, 1.5svh, 1.5rem))
+      clamp(3rem, 8svh, 5.5rem);
   }
 
   .hero-copy {
@@ -419,14 +452,14 @@
   }
 
   .hero-name {
-    margin-block-end: clamp(0.65rem, 2cqi, 0.95rem);
+    margin-block-end: clamp(0.5rem, 1.6svh, 0.95rem);
     letter-spacing: 0;
     text-wrap: balance;
     text-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
   }
 
   .hero-title {
-    margin-block-end: clamp(1rem, 3cqi, 1.35rem);
+    margin-block-end: clamp(0.75rem, 2svh, 1.35rem);
     font-size: clamp(1.05rem, 5.6cqi, 2.85rem);
     line-height: 1.12;
     letter-spacing: 0;
@@ -436,17 +469,17 @@
   }
 
   .hero-tagline {
-    margin-block-end: clamp(1.55rem, 4cqi, 2.2rem);
+    margin-block-end: clamp(1.15rem, 3svh, 2.2rem);
     line-height: 1.72;
     text-wrap: pretty;
   }
 
   .hero-actions {
-    row-gap: 0.85rem;
+    row-gap: clamp(0.65rem, 1.5svh, 0.85rem);
   }
 
   .hero-action {
-    min-block-size: 3.15rem;
+    min-block-size: clamp(2.75rem, 6svh, 3.15rem);
     isolation: isolate;
   }
 
@@ -594,6 +627,70 @@
     pointer-events: none !important;
   }
 
+  /* ---- Progressive modal / lightbox media ----
+     A cached low-res preview (filled by JS from the trigger's already-loaded
+     <img>) paints instantly underneath; the full candidate fades in only
+     after it has loaded AND decoded. The final image keeps its normal flow
+     box in every state, so upgrading never shifts layout, and it stays
+     visible by default so a script failure can never blank the media. */
+  .modal-media-preview,
+  .gallery-media-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .modal-media-preview {
+    object-fit: cover;
+  }
+
+  .gallery-media-preview {
+    object-fit: contain;
+  }
+
+  .modal-media-final,
+  .gallery-media-final {
+    position: relative;
+  }
+
+  .modal-media.is-upgrading .modal-media-final,
+  .gallery-media.is-upgrading .gallery-media-final {
+    opacity: 0;
+  }
+
+  /* The hide above is instant (the final image has nothing to paint yet);
+     only the reveal transitions, once the loaded+decoded image fades in
+     over the preview. */
+  .modal-media.is-upgrading.is-ready .modal-media-final,
+  .gallery-media.is-upgrading.is-ready .gallery-media-final {
+    opacity: 1;
+    transition: opacity 0.28s ease;
+  }
+
+  /* Subtle centred spinner for lightbox slides that are loading without a
+     reusable thumbnail preview. Reduced motion freezes it into a static
+     ring, which still reads as a loading indicator. */
+  .gallery-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    border: 3px solid color-mix(in oklab, var(--accent) 28%, transparent);
+    border-top-color: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+
+  .gallery-media.is-activating:not(.is-ready):not(.is-upgrading)::after {
+    opacity: 1;
+    animation: gallerySpin 0.9s linear infinite;
+  }
+
   .project-modal {
     opacity: 0;
     pointer-events: none;
@@ -643,6 +740,17 @@
       border-radius: 2.45rem;
     }
   }
+
+  /* Shared vertical rhythm for the content sections. Top padding doubles as
+     the navbar → title gap after an anchor jump; both ends compact on short
+     viewports via svh so more content fits the first screenful. */
+  .section-pad {
+    padding-block: var(--section-pad-top) var(--section-pad-bottom);
+  }
+
+  .section-heading {
+    margin-block-end: var(--heading-gap);
+  }
 }
 
 @layer utilities {
@@ -684,6 +792,9 @@
   0%, 48% { opacity: 0.86; }
   49%, 100% { opacity: 0; }
 }
+@keyframes gallerySpin {
+  to { transform: rotate(360deg); }
+}
 @keyframes downloadIconHoverBounce {
   0%, 100% {
     transform: translate3d(0, 0, 0);
@@ -712,6 +823,23 @@ html[data-doc-hidden] .floating-slow,
 html[data-doc-hidden] .floating-reverse,
 html[data-doc-hidden] .soft-pulse {
   animation-play-state: paused;
+}
+
+/* Short-viewport hero compaction: phones with collapsed browser chrome and
+   short screens tighten the hero copy so the buttons and scroll indicator
+   stay inside the first viewport. Unlayered on purpose — these overrides must
+   outrank the Tailwind text-size utilities in the markup, which live in the
+   later `utilities` cascade layer. Text stays comfortably readable. */
+@media (max-height: 760px) and (max-width: 991.98px) {
+  .hero-name {
+    font-size: 1.625rem;
+    line-height: 1.15;
+  }
+
+  .hero-tagline {
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
 }
 
 /* Animated hero backdrop using the brand gradient */

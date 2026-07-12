@@ -54,6 +54,18 @@ export function initVisibilityAnimationPause(): void {
 /** Navbar background on scroll, scrollspy, and smooth anchor navigation. */
 export function initNavbar(lenis: Lenis | null): void {
   const navbar = document.getElementById('navbar');
+
+  // Single source of truth for the anchor offset: the measured height of the
+  // navbar's bar row (not the whole <nav>, which grows when the mobile menu
+  // opens). CSS consumes it as --nav-h (scroll-padding-top, hero padding) and
+  // the Lenis scroll below applies the same value, so native and smooth
+  // anchor navigation land targets at the same position.
+  const navBar = navbar?.firstElementChild as HTMLElement | null;
+  const navHeight = () => navBar?.offsetHeight ?? navbar?.offsetHeight ?? 72;
+  const syncNavHeight = () => {
+    document.documentElement.style.setProperty('--nav-h', `${navHeight()}px`);
+  };
+  syncNavHeight();
   const navLinks = Array.from(
     document.querySelectorAll<HTMLAnchorElement>('.nav-link, .nav-cta-link'),
   );
@@ -149,6 +161,7 @@ export function initNavbar(lenis: Lenis | null): void {
   window.addEventListener(
     'resize',
     () => {
+      syncNavHeight();
       if (!activeId) return;
       window.requestAnimationFrame(() =>
         moveActiveIndicator(indicatorLinks.find((link) => link.getAttribute('href') === `#${activeId}`)),
@@ -157,6 +170,7 @@ export function initNavbar(lenis: Lenis | null): void {
     { passive: true },
   );
   document.fonts?.ready.then(() => {
+    syncNavHeight();
     if (activeId) {
       moveActiveIndicator(indicatorLinks.find((link) => link.getAttribute('href') === `#${activeId}`));
     }
@@ -172,7 +186,9 @@ export function initNavbar(lenis: Lenis | null): void {
       e.preventDefault();
       closeMobileMenu();
       if (lenis) {
-        lenis.scrollTo(target, { offset: -70 });
+        // Mirror the CSS scroll-padding-top so smooth and native navigation
+        // land the section title in the same spot below the fixed bar.
+        lenis.scrollTo(target, { offset: -navHeight() });
       } else {
         target.scrollIntoView({
           behavior: prefersReducedMotion() ? 'auto' : 'smooth',
@@ -690,10 +706,14 @@ interface ShowreelItem {
   source: HTMLSourceElement;
   toggle: HTMLButtonElement;
   muteBtn: HTMLButtonElement | null;
+  fsBtn: HTMLButtonElement | null;
+  statusEl: HTMLElement | null;
   label: string;
   playPending: boolean;
   userPaused: boolean;
 }
+
+type FullscreenVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void };
 
 /**
  * Poster-first showreel with intelligent autoplay. Media URLs stay in
@@ -722,6 +742,8 @@ export function initShowreel(): void {
         source,
         toggle,
         muteBtn: slide.querySelector<HTMLButtonElement>('[data-video-mute]'),
+        fsBtn: slide.querySelector<HTMLButtonElement>('[data-video-fullscreen]'),
+        statusEl: slide.querySelector<HTMLElement>('[data-video-status]'),
         label: video.getAttribute('aria-label') ?? 'showreel video',
         playPending: false,
         userPaused: false,
@@ -758,13 +780,26 @@ export function initShowreel(): void {
     });
   };
 
-  /** Attach the real media URL and start buffering; safe to call repeatedly. */
-  const prepareItem = (item: ShowreelItem) => {
-    if (item.source.src) return;
+  const setStatus = (item: ShowreelItem, message: string) => {
+    if (!item.statusEl) return;
+    item.statusEl.textContent = message;
+    item.statusEl.hidden = message === '';
+  };
+
+  /**
+   * Attach the real media URL and start fetching; safe to call repeatedly.
+   * 'metadata' warms cheaply (headers + moov atom); a later 'auto' call
+   * upgrades the same source to full buffering without resetting playback.
+   */
+  const prepareItem = (item: ShowreelItem, mode: 'auto' | 'metadata' = 'auto') => {
+    if (item.source.src) {
+      if (mode === 'auto' && item.video.preload !== 'auto') item.video.preload = 'auto';
+      return;
+    }
     const mediaUrl = item.source.dataset.src;
     if (!mediaUrl) return;
     item.source.src = mediaUrl;
-    item.video.preload = 'auto';
+    item.video.preload = mode;
     item.video.load();
   };
 
@@ -779,6 +814,10 @@ export function initShowreel(): void {
     pauseAll(item);
     item.playPending = true;
     item.toggle.setAttribute('aria-busy', 'true');
+    // Loading affordance: poster stays put, a subtle ring spins around the
+    // existing control until the video reports it can actually play.
+    item.slide.classList.add('is-waiting');
+    setStatus(item, '');
 
     if (viaAutoplay) {
       // Autoplay must begin muted; the attribute also covers the window
@@ -787,7 +826,7 @@ export function initShowreel(): void {
       item.video.autoplay = true;
       syncMute(item);
     }
-    prepareItem(item);
+    prepareItem(item, 'auto');
 
     try {
       await item.video.play();
@@ -795,6 +834,7 @@ export function initShowreel(): void {
       // Autoplay rejection or a network failure: clear the autoplay intent and
       // leave the poster with a usable, retryable Play control.
       item.video.autoplay = false;
+      item.slide.classList.remove('is-waiting');
       syncControl(item);
     } finally {
       item.playPending = false;
@@ -802,19 +842,55 @@ export function initShowreel(): void {
     }
   };
 
+  const syncFullscreenState = () => {
+    const fsEl = document.fullscreenElement;
+    items.forEach((item) => {
+      const active = fsEl !== null && (fsEl === item.slide || item.slide.contains(fsEl));
+      item.slide.classList.toggle('is-fullscreen', active);
+      item.fsBtn?.setAttribute(
+        'aria-label',
+        active ? `Exit full screen: ${item.label}` : `Enter full screen: ${item.label}`,
+      );
+    });
+  };
+  document.addEventListener('fullscreenchange', syncFullscreenState);
+
   items.forEach((item) => {
     item.video.addEventListener('play', () => syncControl(item));
     item.video.addEventListener('pause', () => {
       // Any pause cancels pending autoplay intent so buffered data arriving
       // later cannot restart a video the user (or viewport exit) stopped.
       item.video.autoplay = false;
+      item.slide.classList.remove('is-waiting');
       syncControl(item);
     });
-    item.video.addEventListener('error', () => syncControl(item));
+    // Poster hand-off and loading ring: a frame exists from `loadeddata`
+    // (readyState ≥ HAVE_CURRENT_DATA) onward, and `waiting`/`canplay`/
+    // `playing` track mid-playback buffering stalls.
+    item.video.addEventListener('loadeddata', () => item.slide.classList.add('has-frame'));
+    item.video.addEventListener('playing', () => {
+      item.slide.classList.add('has-frame');
+      item.slide.classList.remove('is-waiting');
+      setStatus(item, '');
+    });
+    item.video.addEventListener('canplay', () => item.slide.classList.remove('is-waiting'));
+    item.video.addEventListener('waiting', () => {
+      if (!item.video.paused) item.slide.classList.add('is-waiting');
+    });
+    item.video.addEventListener('error', () => {
+      item.slide.classList.remove('is-waiting');
+      setStatus(item, 'Video failed to load. Press play to retry.');
+      syncControl(item);
+    });
     item.video.addEventListener('volumechange', () => syncMute(item));
     item.toggle.addEventListener('click', () => {
       if (item.video.paused) {
         item.userPaused = false;
+        // A failed source stays retryable: reload it before playing again.
+        if (item.video.error) {
+          setStatus(item, '');
+          item.video.load();
+        }
         void playItem(item, false);
       } else {
         item.userPaused = true;
@@ -823,6 +899,27 @@ export function initShowreel(): void {
     });
     item.muteBtn?.addEventListener('click', () => {
       item.video.muted = !item.video.muted;
+    });
+    item.fsBtn?.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+          return;
+        }
+        prepareItem(item, 'auto');
+        if (item.slide.requestFullscreen) {
+          // Fullscreen the slide (not the bare video) so the custom
+          // play/pause, mute, and fullscreen controls stay available.
+          await item.slide.requestFullscreen();
+        } else {
+          // iOS Safari offers no element fullscreen; fall back to the
+          // native video player fullscreen.
+          (item.video as FullscreenVideo).webkitEnterFullscreen?.();
+        }
+      } catch {
+        // Rejected request (permissions/user-agent policy): controls stay
+        // usable and no unhandled rejection surfaces.
+      }
     });
     syncMute(item);
   });
@@ -851,14 +948,44 @@ export function initShowreel(): void {
     void playItem(active, true);
   };
 
+  // First-video head start: once the critical initial rendering has settled
+  // (window load → idle callback), attach the first slide's source at
+  // preload="metadata". This never competes with the hero LCP image and
+  // costs a few KB, but lets the first play start noticeably sooner. Save-
+  // Data users get no speculative video traffic at all.
+  if (!saveData) {
+    const warmFirst = () => prepareItem(items[0], 'metadata');
+    const scheduleFirstWarm = () => {
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(warmFirst, { timeout: 4000 });
+      } else {
+        window.setTimeout(warmFirst, 1500);
+      }
+    };
+    if (document.readyState === 'complete') scheduleFirstWarm();
+    else window.addEventListener('load', scheduleFirstWarm, { once: true });
+  }
+
   if ('IntersectionObserver' in window) {
-    // Warm the active video slightly before the reel scrolls into view so
-    // autoplay can start without a buffering stall. Inactive slides stay cold.
-    if (autoplayEligible()) {
+    // Warm videos as the reel approaches (~25% of a viewport ahead): the
+    // active slide first — full buffering normally, metadata-only under
+    // reduced motion (no autoplay there, but manual play stays snappy) —
+    // then just the adjacent slide at metadata level. Remaining slides stay
+    // cold, so nearing the reel never triggers a bandwidth spike.
+    if (!saveData) {
+      let adjacentWarmTimer = 0;
       const warm = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
-            if (entry.isIntersecting) prepareItem(activeItem());
+            if (!entry.isIntersecting) return;
+            const active = activeItem();
+            prepareItem(active, prefersReducedMotion() ? 'metadata' : 'auto');
+            window.clearTimeout(adjacentWarmTimer);
+            adjacentWarmTimer = window.setTimeout(() => {
+              const current = activeItem();
+              const next = items[(items.indexOf(current) + 1) % items.length];
+              if (next !== current) prepareItem(next, 'metadata');
+            }, 1200);
           });
         },
         { rootMargin: '25% 0px' },

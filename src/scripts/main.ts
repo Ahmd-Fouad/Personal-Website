@@ -17,6 +17,11 @@ import {
   initScrollReveals,
   initSkillBars,
 } from './animations';
+import {
+  initProjectModalMedia,
+  initPortfolioThumbs,
+  initGalleryMedia,
+} from './media';
 
 let booted = false;
 
@@ -41,6 +46,12 @@ function boot() {
     initSliders();
     initShowreel();
     initVisibilityAnimationPause();
+
+    // Progressive media: instant modal/lightbox previews and proximity or
+    // intent-based image loading.
+    initProjectModalMedia();
+    initPortfolioThumbs();
+    initGalleryMedia();
 
     // Animations
     initHeroAnimation();
