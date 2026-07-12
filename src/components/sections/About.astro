@@ -13,10 +13,10 @@ const aboutImageQuality = 92;
   <div class="container-x">
     <SectionHeading lead="About" highlight="Me" />
 
-    <div class="grid items-center gap-12 lg:grid-cols-6">
+    <div class="about-grid grid items-center gap-12 lg:grid-cols-6">
       <!-- Image -->
       <div
-        class="reveal mx-auto max-w-[75%] sm:max-w-[55%] md:max-w-[45%] lg:col-span-2 lg:max-w-none"
+        class="about-portrait reveal mx-auto max-w-[75%] sm:max-w-[55%] md:max-w-[45%] lg:col-span-2 lg:max-w-none"
       >
         <div class="neu-card neu-card-hover flex items-center justify-center rounded-3xl">
           <Image
@@ -31,19 +31,19 @@ const aboutImageQuality = 92;
       </div>
 
       <!-- Bio -->
-      <div class="reveal lg:col-span-4 lg:ps-10">
+      <div class="about-copy reveal lg:col-span-4 lg:ps-10">
         {
           about.paragraphs.map((p) => (
-            <p class="mb-4 text-center leading-relaxed text-text-muted lg:text-start xl:text-lg">
+            <p class="about-paragraph mb-4 text-center leading-relaxed text-text-muted lg:text-start xl:text-lg">
               {p}
             </p>
           ))
         }
 
-        <div class="mt-6 grid gap-6 sm:grid-cols-2">
+        <div class="about-stats mt-6 grid gap-6 sm:grid-cols-2">
           {
             about.highlights.map((h) => (
-              <div class="neu-card neu-card-hover rounded-2xl p-4 text-center">
+              <div class="about-stat neu-card neu-card-hover rounded-2xl p-4 text-center">
                 <h3 class="soft-pulse mb-2 text-4xl font-bold text-primary-text">{h.value}</h3>
                 <p class="text-sm uppercase tracking-wider text-text-muted">{h.label}</p>
               </div>

@@ -1,38 +1,59 @@
 ---
+import { getImage, Image } from 'astro:assets';
 import { Icon } from 'astro-icon/components';
 import { videoSlides } from '@data/education';
+import posterOne from '../../assets/images/portfolio/main/1-sl.png';
+import posterTwo from '../../assets/images/portfolio/main/2-bl.png';
+import posterThree from '../../assets/images/portfolio/main/3-sl.png';
+import posterFour from '../../assets/images/portfolio/main/4-rapk.png';
+
+const posters = [posterOne, posterTwo, posterThree, posterFour];
+const posterWidths = [640, 960, 1280, 1600, 1920];
+const nativePosters = await Promise.all(
+  posters.map((src) => getImage({ src, width: 1600, format: 'webp', quality: 84 })),
+);
 ---
 
-<div class="section-divider"></div>
-<section class="relative h-[360px] w-full overflow-hidden bg-primary" aria-label="Project showreel">
+<div class="showreel-divider-before section-divider"></div>
+<section id="showreel" class="relative h-[360px] w-full overflow-hidden bg-primary" aria-label="Project showreel">
   <div id="video-track" class="scrollbar-none flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth">
     {
-      videoSlides.map((slide) => (
+      videoSlides.map((slide, index) => (
         <div class="video-slide relative h-full w-full shrink-0 snap-center" data-video-slide>
-          {/*
-            preload="none", no `autoplay`, and a data-only source: nothing is
-            fetched on initial page load. JS attaches the source only after an
-            explicit activation of the play control.
-          */}
+          {/* The first source is attached just after the hero is ready; the
+              adjacent sources follow as soon as its first frame arrives.
+              Distant slides stay cold until they become adjacent. */}
           <video
             class="video-el h-full w-full object-cover"
             muted
             loop
             playsinline
             preload="none"
+            poster={nativePosters[index].src}
             aria-label={slide.label}
           >
             <source data-src={slide.src} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
           <div class="pointer-events-none absolute inset-0 z-10 bg-ink/25"></div>
-          {/* Branded poster placeholder — shown until playback begins so the
-              slide is never a blank/black box while media is unloaded. */}
+          {/* A real project image remains visible until the video has a
+              confirmed decoded frame. It also survives errors and fullscreen
+              transitions as the visual fallback for this exact slide. */}
           <div
-            class="video-poster pointer-events-none absolute inset-0 z-20 bg-primary"
+            class="video-poster pointer-events-none absolute inset-0 z-20"
             data-video-poster
             aria-hidden="true"
           >
+            <Image
+              src={posters[index]}
+              alt=""
+              widths={posterWidths}
+              sizes="100vw"
+              quality={84}
+              loading="lazy"
+              class="h-full w-full object-cover"
+            />
+            <div class="absolute inset-0 bg-ink/20"></div>
           </div>
           <button
             type="button"
@@ -46,16 +67,7 @@ import { videoSlides } from '@data/education';
           </button>
           <button
             type="button"
-            class="video-mute absolute bottom-4 end-4 z-30 h-10 w-10 place-items-center rounded-full bg-slate/70 text-primary shadow-lg transition-transform duration-300 hover:scale-105 hover:bg-slate"
-            data-video-mute
-            aria-label={`Unmute ${slide.label}`}
-          >
-            <Icon name="fa6-solid:volume-xmark" class="video-icon-muted h-4 w-4" aria-hidden="true" />
-            <Icon name="fa6-solid:volume-high" class="video-icon-sound hidden h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="video-fs absolute bottom-4 end-16 z-30 grid h-10 w-10 place-items-center rounded-full bg-slate/70 text-primary shadow-lg transition-transform duration-300 hover:scale-105 hover:bg-slate"
+            class="video-fs absolute bottom-4 end-4 z-30 grid h-10 w-10 place-items-center rounded-full bg-slate/70 text-primary shadow-lg transition-transform duration-300 hover:scale-105 hover:bg-slate"
             data-video-fullscreen
             aria-label={`Enter full screen: ${slide.label}`}
           >
@@ -93,13 +105,12 @@ import { videoSlides } from '@data/education';
     <Icon name="fa6-solid:chevron-right" class="h-4 w-4" aria-hidden="true" />
   </button>
 </section>
-<div class="section-divider"></div>
+<div class="showreel-divider-after section-divider"></div>
 
 <style>
-  /* The poster leaves only when playback has an actual frame to show
-     (is-playing + has-frame, both JS-synced), so a buffering video never
-     exposes a blank/black box. Kept in CSS so state is a class toggle. */
-  .video-slide.is-playing.has-frame .video-poster {
+  /* Keep the meaningful poster until a decoded frame is confirmed. Once a
+     frame exists, retain that frame even while paused or buffering. */
+  .video-slide.has-frame .video-poster {
     opacity: 0;
   }
   .video-poster {
@@ -136,14 +147,11 @@ import { videoSlides } from '@data/education';
   /* Idle controls are subtle over the ambient reel but stay operable; they
      lift to full opacity on hover/focus for a clearly visible affordance. */
   .video-slide.is-playing .video-toggle,
-  .video-slide.is-playing .video-mute,
   .video-slide.is-playing .video-fs {
     opacity: 0.55;
   }
   .video-toggle:hover,
   .video-toggle:focus-visible,
-  .video-mute:hover,
-  .video-mute:focus-visible,
   .video-fs:hover,
   .video-fs:focus-visible {
     opacity: 1;
@@ -162,18 +170,12 @@ import { videoSlides } from '@data/education';
   .video-slide.is-fullscreen .video-icon-compress {
     display: block;
   }
-  /* The mute toggle only matters during playback; it appears with the pause
-     control and swaps its icon with the slide's is-muted state (JS-synced). */
-  .video-mute {
-    display: none;
+  /* Full-bleed media still observes the shared boundary rhythm: the divider
+     sits between breathing room on both sides instead of touching the frame. */
+  .showreel-divider-before {
+    margin-block-end: var(--section-pad-top);
   }
-  .video-slide.is-playing .video-mute {
-    display: grid;
-  }
-  .video-slide:not(.is-muted) .video-icon-muted {
-    display: none;
-  }
-  .video-slide:not(.is-muted) .video-icon-sound {
-    display: block;
+  .showreel-divider-after {
+    margin-block-start: var(--section-pad-bottom);
   }
 </style>

@@ -176,6 +176,24 @@ export function initNavbar(lenis: Lenis | null): void {
     }
   });
 
+  const scrollToTarget = (target: HTMLElement) => {
+    if (lenis) {
+      // Root scroll-padding is the only navbar offset for Lenis and native
+      // navigation alike.
+      lenis.scrollTo(target);
+    } else {
+      target.scrollIntoView({
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+  };
+
+  // Lenis, rather than the browser's asynchronous scroll restoration, owns
+  // same-document history positions so Forward cannot overwrite our target
+  // scroll with a stale coordinate from before the smooth animation began.
+  if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+
   document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((anchor) => {
     anchor.addEventListener('click', (e) => {
       const href = anchor.getAttribute('href');
@@ -185,21 +203,23 @@ export function initNavbar(lenis: Lenis | null): void {
 
       e.preventDefault();
       closeMobileMenu();
-      if (lenis) {
-        // Mirror the CSS scroll-padding-top so smooth and native navigation
-        // land the section title in the same spot below the fixed bar.
-        lenis.scrollTo(target, { offset: -navHeight() });
-      } else {
-        target.scrollIntoView({
-          behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-          block: 'start',
-        });
-      }
+      if (window.location.hash !== href) window.history.pushState(null, '', href);
+      scrollToTarget(target);
       // Move focus to the destination (e.g. the skip link's #main target).
       // `preventScroll` avoids fighting the smooth scroll above; on targets
       // without `tabindex`, this is a harmless no-op per the DOM spec.
       target.focus({ preventScroll: true });
     });
+  });
+
+  // pushState-backed anchor clicks need an explicit history traversal path:
+  // browsers restore the URL but Lenis owns the scroll position. Reuse the
+  // same target routine for Back/Forward, including the hashless home entry.
+  window.addEventListener('popstate', () => {
+    const target = window.location.hash
+      ? document.querySelector<HTMLElement>(window.location.hash)
+      : document.getElementById('home');
+    if (target) window.requestAnimationFrame(() => scrollToTarget(target));
   });
 }
 
@@ -705,29 +725,42 @@ interface ShowreelItem {
   video: HTMLVideoElement;
   source: HTMLSourceElement;
   toggle: HTMLButtonElement;
-  muteBtn: HTMLButtonElement | null;
   fsBtn: HTMLButtonElement | null;
   statusEl: HTMLElement | null;
   label: string;
   playPending: boolean;
+  sourceAttached: boolean;
+  metadataReady: boolean;
+  frameReady: boolean;
+  canPlay: boolean;
+  previouslyPlayed: boolean;
   userPaused: boolean;
+  autoPaused: boolean;
+  failed: boolean;
+  loading: boolean;
 }
 
 type FullscreenVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+type FrameCallbackVideo = HTMLVideoElement & {
+  requestVideoFrameCallback?: (callback: () => void) => number;
+};
 
 /**
  * Poster-first showreel with intelligent autoplay. Media URLs stay in
- * `data-src` so the initial page load never fetches an MP4; one
- * IntersectionObserver warms only the active slide's video as the reel nears
- * the viewport and a second starts muted playback once the reel is
- * sufficiently visible. Playback pauses when the reel leaves the viewport,
- * the tab is hidden, or another slide is selected; a slide the user manually
- * paused never auto-resumes. Autoplay is skipped entirely under
- * prefers-reduced-motion or Save-Data, leaving the manual controls in charge.
+ * `data-src` until the priority Hero image has loaded and decoded; the first
+ * slide then gets a non-blocking metadata head start. One IntersectionObserver
+ * upgrades the active slide as the reel nears the viewport and a second starts
+ * muted playback once the reel is sufficiently visible. Playback pauses when
+ * the reel leaves the viewport, the tab is hidden, or another slide is
+ * selected; a slide the user manually paused never auto-resumes. Autoplay is
+ * skipped entirely under prefers-reduced-motion or Save-Data, leaving the
+ * manual controls in charge.
  */
 export function initShowreel(): void {
   const track = document.getElementById('video-track');
-  if (!track) return;
+  if (!track || track.dataset.showreelInitialized === 'true') return;
+  track.dataset.showreelInitialized = 'true';
+  const showreelTrack = track;
 
   const slides = Array.from(track.querySelectorAll<HTMLElement>('[data-video-slide]'));
   const items = slides
@@ -741,20 +774,30 @@ export function initShowreel(): void {
         video,
         source,
         toggle,
-        muteBtn: slide.querySelector<HTMLButtonElement>('[data-video-mute]'),
         fsBtn: slide.querySelector<HTMLButtonElement>('[data-video-fullscreen]'),
         statusEl: slide.querySelector<HTMLElement>('[data-video-status]'),
         label: video.getAttribute('aria-label') ?? 'showreel video',
         playPending: false,
+        sourceAttached: Boolean(source.src),
+        metadataReady: video.readyState >= HTMLMediaElement.HAVE_METADATA,
+        frameReady: video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+        canPlay: video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA,
+        previouslyPlayed: false,
         userPaused: false,
+        autoPaused: false,
+        failed: false,
+        loading: false,
       };
     })
     .filter((item): item is ShowreelItem => item !== null);
 
   if (!items.length) return;
 
-  const saveData =
-    (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+  const connection = (
+    navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }
+  ).connection;
+  const saveData = connection?.saveData === true;
+  const slowConnection = ['slow-2g', '2g', '3g'].includes(connection?.effectiveType ?? '');
   const autoplayEligible = () => !prefersReducedMotion() && !saveData;
 
   // True while the reel is "sufficiently visible" (≥40% in the viewport).
@@ -767,16 +810,30 @@ export function initShowreel(): void {
     item.toggle.setAttribute('aria-pressed', String(playing));
   };
 
-  const syncMute = (item: ShowreelItem) => {
-    if (!item.muteBtn) return;
-    const muted = item.video.muted;
-    item.slide.classList.toggle('is-muted', muted);
-    item.muteBtn.setAttribute('aria-label', `${muted ? 'Unmute' : 'Mute'} ${item.label}`);
+  const syncState = (item: ShowreelItem) => {
+    item.slide.classList.toggle('has-frame', item.frameReady);
+    // The spinner may sit over either the poster or the retained last frame;
+    // it never replaces the meaningful visual underneath.
+    item.slide.classList.toggle('is-waiting', item.loading);
+    item.slide.dataset.mediaState = item.failed
+      ? 'failed'
+      : item.canPlay
+        ? 'can-play'
+        : item.frameReady
+          ? 'frame-ready'
+          : item.metadataReady
+            ? 'metadata-ready'
+            : item.sourceAttached
+              ? 'loading'
+              : 'cold';
   };
 
   const pauseAll = (except?: ShowreelItem) => {
     items.forEach((item) => {
-      if (item !== except && !item.video.paused) item.video.pause();
+      if (item !== except && !item.video.paused) {
+        item.autoPaused = true;
+        item.video.pause();
+      }
     });
   };
 
@@ -792,16 +849,36 @@ export function initShowreel(): void {
    * upgrades the same source to full buffering without resetting playback.
    */
   const prepareItem = (item: ShowreelItem, mode: 'auto' | 'metadata' = 'auto') => {
-    if (item.source.src) {
+    if (item.sourceAttached) {
       if (mode === 'auto' && item.video.preload !== 'auto') item.video.preload = 'auto';
       return;
     }
     const mediaUrl = item.source.dataset.src;
     if (!mediaUrl) return;
+    item.sourceAttached = true;
+    item.failed = false;
     item.source.src = mediaUrl;
     item.video.preload = mode;
+    // The only ordinary load() call in the lifecycle: attach this source once,
+    // then retain it for the page session. Navigation and fullscreen never
+    // detach, reassign, or reload it.
     item.video.load();
+    syncState(item);
   };
+
+  /** As soon as the active video owns a real frame, prepare both immediate
+   * neighbours without an arbitrary delay. Normal connections use full auto
+   * preload; slow connections use metadata; Save-Data keeps posters only. */
+  function scheduleAdjacent(item: ShowreelItem): void {
+    if (saveData || (!item.frameReady && !item.canPlay)) return;
+
+    const index = items.indexOf(item);
+    const next = items[(index + 1) % items.length];
+    const previous = items[(index - 1 + items.length) % items.length];
+    const mode = slowConnection ? 'metadata' : 'auto';
+    if (next !== item) prepareItem(next, mode);
+    if (previous !== item && previous !== next) prepareItem(previous, mode);
+  }
 
   const playItem = async (item: ShowreelItem, viaAutoplay: boolean) => {
     if (item.playPending || !item.video.paused) return;
@@ -812,19 +889,20 @@ export function initShowreel(): void {
     }
 
     pauseAll(item);
+    item.autoPaused = false;
     item.playPending = true;
     item.toggle.setAttribute('aria-busy', 'true');
     // Loading affordance: poster stays put, a subtle ring spins around the
     // existing control until the video reports it can actually play.
-    item.slide.classList.add('is-waiting');
-    setStatus(item, '');
+    item.loading = !item.frameReady;
+    syncState(item);
+    setStatus(item, item.frameReady ? '' : 'Loading video…');
 
     if (viaAutoplay) {
       // Autoplay must begin muted; the attribute also covers the window
       // between load() and the play() promise settling.
       item.video.muted = true;
       item.video.autoplay = true;
-      syncMute(item);
     }
     prepareItem(item, 'auto');
 
@@ -834,7 +912,9 @@ export function initShowreel(): void {
       // Autoplay rejection or a network failure: clear the autoplay intent and
       // leave the poster with a usable, retryable Play control.
       item.video.autoplay = false;
-      item.slide.classList.remove('is-waiting');
+      item.loading = false;
+      setStatus(item, '');
+      syncState(item);
       syncControl(item);
     } finally {
       item.playPending = false;
@@ -856,49 +936,110 @@ export function initShowreel(): void {
   document.addEventListener('fullscreenchange', syncFullscreenState);
 
   items.forEach((item) => {
-    item.video.addEventListener('play', () => syncControl(item));
+    item.video.muted = true;
+    item.video.addEventListener('play', () => {
+      item.previouslyPlayed = true;
+      item.autoPaused = false;
+      syncControl(item);
+    });
     item.video.addEventListener('pause', () => {
       // Any pause cancels pending autoplay intent so buffered data arriving
       // later cannot restart a video the user (or viewport exit) stopped.
       item.video.autoplay = false;
-      item.slide.classList.remove('is-waiting');
+      item.loading = false;
+      item.toggle.removeAttribute('aria-busy');
+      if (!item.failed) setStatus(item, '');
+      syncState(item);
       syncControl(item);
     });
     // Poster hand-off and loading ring: a frame exists from `loadeddata`
     // (readyState ≥ HAVE_CURRENT_DATA) onward, and `waiting`/`canplay`/
     // `playing` track mid-playback buffering stalls.
-    item.video.addEventListener('loadeddata', () => item.slide.classList.add('has-frame'));
+    item.video.addEventListener('loadedmetadata', () => {
+      item.metadataReady = true;
+      syncState(item);
+    });
+    item.video.addEventListener('loadeddata', () => {
+      if (
+        item.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+        item.video.videoWidth > 0 &&
+        item.video.videoHeight > 0
+      ) {
+        const confirmFrame = () => {
+          item.frameReady = true;
+          item.loading =
+            !item.video.paused && item.video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
+          syncState(item);
+          if (activeItem() === item) scheduleAdjacent(item);
+        };
+        const frameVideo = item.video as FrameCallbackVideo;
+        if (typeof frameVideo.requestVideoFrameCallback === 'function') {
+          frameVideo.requestVideoFrameCallback(confirmFrame);
+        } else {
+          window.requestAnimationFrame(confirmFrame);
+        }
+      }
+    });
     item.video.addEventListener('playing', () => {
-      item.slide.classList.add('has-frame');
-      item.slide.classList.remove('is-waiting');
+      item.frameReady = true;
+      item.canPlay = true;
+      item.loading = false;
+      item.toggle.removeAttribute('aria-busy');
+      syncState(item);
       setStatus(item, '');
     });
-    item.video.addEventListener('canplay', () => item.slide.classList.remove('is-waiting'));
+    item.video.addEventListener('canplay', () => {
+      item.canPlay = true;
+      item.loading = false;
+      item.toggle.removeAttribute('aria-busy');
+      syncState(item);
+      setStatus(item, '');
+      if (activeItem() === item) scheduleAdjacent(item);
+    });
     item.video.addEventListener('waiting', () => {
-      if (!item.video.paused) item.slide.classList.add('is-waiting');
+      if (!item.video.paused) {
+        item.loading = true;
+        item.toggle.setAttribute('aria-busy', 'true');
+        setStatus(item, item.frameReady ? 'Buffering video…' : 'Loading video…');
+        syncState(item);
+      }
+    });
+    item.video.addEventListener('stalled', () => {
+      if (!item.video.paused && item.video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+        item.loading = true;
+        item.toggle.setAttribute('aria-busy', 'true');
+        setStatus(item, item.frameReady ? 'Buffering video…' : 'Loading video…');
+        syncState(item);
+      }
     });
     item.video.addEventListener('error', () => {
-      item.slide.classList.remove('is-waiting');
+      item.failed = true;
+      item.loading = false;
+      item.frameReady = false;
+      item.canPlay = false;
+      item.toggle.removeAttribute('aria-busy');
+      syncState(item);
       setStatus(item, 'Video failed to load. Press play to retry.');
       syncControl(item);
     });
-    item.video.addEventListener('volumechange', () => syncMute(item));
     item.toggle.addEventListener('click', () => {
       if (item.video.paused) {
         item.userPaused = false;
+        item.autoPaused = false;
         // A failed source stays retryable: reload it before playing again.
-        if (item.video.error) {
+        if (item.video.error && item.failed) {
           setStatus(item, '');
+          item.failed = false;
+          item.loading = true;
+          syncState(item);
           item.video.load();
         }
         void playItem(item, false);
       } else {
         item.userPaused = true;
+        item.autoPaused = false;
         item.video.pause();
       }
-    });
-    item.muteBtn?.addEventListener('click', () => {
-      item.video.muted = !item.video.muted;
     });
     item.fsBtn?.addEventListener('click', async () => {
       try {
@@ -906,10 +1047,9 @@ export function initShowreel(): void {
           await document.exitFullscreen();
           return;
         }
-        prepareItem(item, 'auto');
         if (item.slide.requestFullscreen) {
           // Fullscreen the slide (not the bare video) so the custom
-          // play/pause, mute, and fullscreen controls stay available.
+          // play/pause and fullscreen controls stay available.
           await item.slide.requestFullscreen();
         } else {
           // iOS Safari offers no element fullscreen; fall back to the
@@ -921,12 +1061,12 @@ export function initShowreel(): void {
         // usable and no unhandled rejection surfaces.
       }
     });
-    syncMute(item);
+    syncState(item);
   });
 
   // The slide nearest the track's horizontal centre is the "active" one.
-  const activeItem = (): ShowreelItem => {
-    const center = track.scrollLeft + track.clientWidth / 2;
+  function activeItem(): ShowreelItem {
+    const center = showreelTrack.scrollLeft + showreelTrack.clientWidth / 2;
     let nearest = items[0];
     let bestDistance = Number.POSITIVE_INFINITY;
     items.forEach((item) => {
@@ -938,7 +1078,7 @@ export function initShowreel(): void {
       }
     });
     return nearest;
-  };
+  }
 
   /** Start muted playback of the active slide when every gate allows it. */
   const maybeAutoplay = () => {
@@ -948,44 +1088,51 @@ export function initShowreel(): void {
     void playItem(active, true);
   };
 
-  // First-video head start: once the critical initial rendering has settled
-  // (window load → idle callback), attach the first slide's source at
-  // preload="metadata". This never competes with the hero LCP image and
-  // costs a few KB, but lets the first play start noticeably sooner. Save-
-  // Data users get no speculative video traffic at all.
+  // First-video head start: as soon as the priority Hero portrait has loaded
+  // and decoded, use the browser's next idle slice (or one animation frame as
+  // fallback) to attach metadata. This avoids both an unrelated window-load
+  // gate and any fixed delay while protecting the Hero/LCP request.
   if (!saveData) {
     const warmFirst = () => prepareItem(items[0], 'metadata');
+    let firstWarmScheduled = false;
     const scheduleFirstWarm = () => {
+      if (firstWarmScheduled) return;
+      firstWarmScheduled = true;
       if (typeof window.requestIdleCallback === 'function') {
-        window.requestIdleCallback(warmFirst, { timeout: 4000 });
+        window.requestIdleCallback(warmFirst);
       } else {
-        window.setTimeout(warmFirst, 1500);
+        window.requestAnimationFrame(warmFirst);
       }
     };
-    if (document.readyState === 'complete') scheduleFirstWarm();
-    else window.addEventListener('load', scheduleFirstWarm, { once: true });
+    const heroPortrait = document.querySelector<HTMLImageElement>('.hero-portrait');
+    const afterHeroDecode = () => {
+      if (!heroPortrait || typeof heroPortrait.decode !== 'function') {
+        scheduleFirstWarm();
+        return;
+      }
+      void heroPortrait.decode().then(scheduleFirstWarm, scheduleFirstWarm);
+    };
+
+    if (!heroPortrait || (heroPortrait.complete && heroPortrait.naturalWidth > 0)) {
+      afterHeroDecode();
+    } else {
+      heroPortrait.addEventListener('load', afterHeroDecode, { once: true });
+      heroPortrait.addEventListener('error', scheduleFirstWarm, { once: true });
+    }
   }
 
   if ('IntersectionObserver' in window) {
-    // Warm videos as the reel approaches (~25% of a viewport ahead): the
-    // active slide first — full buffering normally, metadata-only under
-    // reduced motion (no autoplay there, but manual play stays snappy) —
-    // then just the adjacent slide at metadata level. Remaining slides stay
-    // cold, so nearing the reel never triggers a bandwidth spike.
+    // Warm videos as the reel approaches (~25% of a viewport ahead): active
+    // first, then both immediate neighbours only after the active item owns a
+    // frame. Remaining slides stay cold.
     if (!saveData) {
-      let adjacentWarmTimer = 0;
       const warm = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
             if (!entry.isIntersecting) return;
             const active = activeItem();
-            prepareItem(active, prefersReducedMotion() ? 'metadata' : 'auto');
-            window.clearTimeout(adjacentWarmTimer);
-            adjacentWarmTimer = window.setTimeout(() => {
-              const current = activeItem();
-              const next = items[(items.indexOf(current) + 1) % items.length];
-              if (next !== current) prepareItem(next, 'metadata');
-            }, 1200);
+            prepareItem(active, slowConnection ? 'metadata' : 'auto');
+            scheduleAdjacent(active);
           });
         },
         { rootMargin: '25% 0px' },
@@ -1015,20 +1162,20 @@ export function initShowreel(): void {
     else maybeAutoplay();
   });
 
-  // Swiping to another slide pauses the rest immediately, then the newly
-  // centred slide may autoplay (muted) once the scroll settles.
+  // Swiping to another slide pauses the rest and prepares/plays the newly
+  // nearest slide in the next animation frame — no arbitrary settle delay.
   let scrollFrame = 0;
-  let settleTimer: number | undefined;
   track.addEventListener(
     'scroll',
     () => {
-      if (settleTimer) window.clearTimeout(settleTimer);
-      settleTimer = window.setTimeout(maybeAutoplay, 180);
       if (scrollFrame) return;
       scrollFrame = window.requestAnimationFrame(() => {
         scrollFrame = 0;
         const active = activeItem();
         pauseAll(active);
+        prepareItem(active, slowConnection ? 'metadata' : 'auto');
+        scheduleAdjacent(active);
+        maybeAutoplay();
       });
     },
     { passive: true },

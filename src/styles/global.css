@@ -79,21 +79,29 @@
 }
 
 /* ---- Shared layout rhythm ----
-   --nav-h is the single source of truth for the fixed navbar's height: the CSS
-   fallback matches the rendered bar and JS keeps it synced to the measured
-   height. Anchor scrolling (native scroll-padding-top and the Lenis offset)
-   and the section paddings below all derive from it, so a navbar link always
-   lands a section title just below the bar instead of stacking several
-   independent offsets. Section paddings scale with small-viewport height
-   (svh) so short laptops and phones get the compact end of each range. */
+   Anchor placement and natural section rhythm are deliberately separate.
+   --anchor-title-gap controls only hash navigation. --section-space owns one
+   side of every divider during normal scrolling, so neighbouring sections do
+   not stack duplicate margins and each separator remains optically centred. */
 :root {
   --nav-h: 4.5rem;
-  /* navbar → section title: ~20-32px */
-  --section-pad-top: clamp(1.25rem, 3svh, 2rem);
-  /* last content → next section boundary: ~44-72px */
-  --section-pad-bottom: clamp(2.75rem, 7svh, 4.5rem);
-  /* section title → first content block: ~24-44px */
-  --heading-gap: clamp(1.5rem, 4svh, 2.75rem);
+  --anchor-title-gap: clamp(0.75rem, 2.4svh, 1.5rem);
+  --section-space: clamp(1.5rem, 3.5svh, 2.5rem);
+  --section-pad-top: var(--section-space);
+  --section-pad-bottom: var(--section-space);
+  --heading-gap: clamp(1.5rem, 3.6svh, 2.5rem);
+}
+
+@media (max-width: 991.98px) {
+  :root {
+    --section-space: clamp(1.25rem, 2.75svh, 1.75rem);
+  }
+}
+
+@media (max-width: 767.98px) {
+  :root {
+    --section-space: clamp(1.25rem, 3svh, 1.5rem);
+  }
 }
 
 /* ---- Branded scrollbar (theme-aware; tan thumb on the section band tone) ---- */
@@ -741,11 +749,17 @@
     }
   }
 
-  /* Shared vertical rhythm for the content sections. Top padding doubles as
-     the navbar → title gap after an anchor jump; both ends compact on short
-     viewports via svh so more content fits the first screenful. */
+  /* Shared natural rhythm around section dividers. Anchor landing is
+     compensated separately by the scroll-margin rule below. */
   .section-pad {
     padding-block: var(--section-pad-top) var(--section-pad-bottom);
+  }
+
+  /* Native hash navigation keeps the title at --anchor-title-gap even though
+     normal scrolling now uses the much larger --section-space around the
+     divider. Lenis reads the same scroll-margin, keeping one offset system. */
+  .section-pad[id] {
+    scroll-margin-top: calc(var(--anchor-title-gap) - var(--section-pad-top));
   }
 
   .section-heading {
@@ -830,15 +844,80 @@ html[data-doc-hidden] .soft-pulse {
    stay inside the first viewport. Unlayered on purpose — these overrides must
    outrank the Tailwind text-size utilities in the markup, which live in the
    later `utilities` cascade layer. Text stays comfortably readable. */
-@media (max-height: 760px) and (max-width: 991.98px) {
+/* The name and animated role share the same container-relative scale on
+   phones/tablets, with the primary heading held about 10% larger. This
+   unlayered rule intentionally outranks the utility text-size classes. */
+@media (max-width: 991.98px) {
   .hero-name {
-    font-size: 1.625rem;
-    line-height: 1.15;
+    font-size: clamp(1.15rem, 6.15cqi, 3rem);
+    line-height: 1.12;
   }
+}
+
+@media (max-height: 760px) and (max-width: 991.98px) {
 
   .hero-tagline {
     font-size: 0.95rem;
     line-height: 1.55;
+  }
+}
+
+/* Laptop/desktop About composition: approximately one usable viewport tall,
+   with readable body copy and a larger portrait. min-height never clips —
+   short screens can grow naturally when the content needs more room. */
+@media (min-width: 1024px) {
+  #about {
+    min-block-size: calc(100svh - var(--nav-h));
+  }
+
+  #about > .container-x {
+    display: flex;
+    min-block-size: calc(100svh - var(--nav-h) - var(--section-pad-top) - var(--section-pad-bottom));
+    flex-direction: column;
+  }
+
+  #about .about-grid {
+    flex: 1;
+    grid-template-columns: minmax(21rem, 0.95fr) minmax(0, 1.75fr);
+    column-gap: clamp(2.25rem, 3.5vw, 4rem);
+  }
+
+  #about .about-copy {
+    grid-column: auto;
+    padding-inline-start: clamp(0rem, 0.8vw, 0.75rem);
+  }
+
+  #about .about-portrait {
+    grid-column: auto;
+    width: min(100%, 26rem);
+  }
+
+  #about .about-paragraph {
+    margin-block-end: clamp(0.75rem, 1.5svh, 1rem);
+    font-size: clamp(1.0625rem, 1.2vw, 1.1875rem);
+    line-height: 1.62;
+  }
+
+  #about .about-paragraph:last-of-type {
+    margin-block-end: 0;
+  }
+
+  #about .about-stats {
+    margin-block-start: clamp(1.25rem, 2.5svh, 1.75rem);
+    gap: clamp(1rem, 1.8vw, 1.5rem);
+  }
+
+  #about .about-stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-block-size: clamp(6.5rem, 13svh, 7.75rem);
+    padding: clamp(1rem, 2svh, 1.25rem);
+  }
+
+  #about .about-stat h3 {
+    margin-block-end: clamp(0.35rem, 0.8svh, 0.6rem);
+    font-size: clamp(2.4rem, 3vw, 2.75rem);
   }
 }
 
