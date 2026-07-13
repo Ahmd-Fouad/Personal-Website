@@ -1,17 +1,6 @@
 ---
-import { getImage, Image } from 'astro:assets';
 import { Icon } from 'astro-icon/components';
 import { videoSlides } from '@data/education';
-import posterOne from '../../assets/images/portfolio/main/1-sl.png';
-import posterTwo from '../../assets/images/portfolio/main/2-bl.png';
-import posterThree from '../../assets/images/portfolio/main/3-sl.png';
-import posterFour from '../../assets/images/portfolio/main/4-rapk.png';
-
-const posters = [posterOne, posterTwo, posterThree, posterFour];
-const posterWidths = [640, 960, 1280, 1600, 1920];
-const nativePosters = await Promise.all(
-  posters.map((src) => getImage({ src, width: 1600, format: 'webp', quality: 84 })),
-);
 ---
 
 <div class="showreel-divider-before section-divider"></div>
@@ -20,41 +9,19 @@ const nativePosters = await Promise.all(
     {
       videoSlides.map((slide, index) => (
         <div class="video-slide relative h-full w-full shrink-0 snap-center" data-video-slide>
-          {/* The first source is attached just after the hero is ready; the
-              adjacent sources follow as soon as its first frame arrives.
-              Distant slides stay cold until they become adjacent. */}
+          {/* Sources remain detached until JS reaches their loading phase. */}
           <video
             class="video-el h-full w-full object-cover"
             muted
             loop
             playsinline
-            preload="none"
-            poster={nativePosters[index].src}
+            preload={index === 0 ? 'auto' : 'none'}
             aria-label={slide.label}
           >
             <source data-src={slide.src} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
           <div class="pointer-events-none absolute inset-0 z-10 bg-ink/25"></div>
-          {/* A real project image remains visible until the video has a
-              confirmed decoded frame. It also survives errors and fullscreen
-              transitions as the visual fallback for this exact slide. */}
-          <div
-            class="video-poster pointer-events-none absolute inset-0 z-20"
-            data-video-poster
-            aria-hidden="true"
-          >
-            <Image
-              src={posters[index]}
-              alt=""
-              widths={posterWidths}
-              sizes="100vw"
-              quality={84}
-              loading="lazy"
-              class="h-full w-full object-cover"
-            />
-            <div class="absolute inset-0 bg-ink/20"></div>
-          </div>
           <button
             type="button"
             class="video-toggle absolute left-1/2 top-1/2 z-30 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-slate/70 text-primary shadow-lg transition-transform duration-300 hover:scale-105 hover:bg-slate"
@@ -108,14 +75,6 @@ const nativePosters = await Promise.all(
 <div class="showreel-divider-after section-divider"></div>
 
 <style>
-  /* Keep the meaningful poster until a decoded frame is confirmed. Once a
-     frame exists, retain that frame even while paused or buffering. */
-  .video-slide.has-frame .video-poster {
-    opacity: 0;
-  }
-  .video-poster {
-    transition: opacity 0.3s ease;
-  }
   .video-slide.is-playing .video-icon-play {
     display: none;
   }

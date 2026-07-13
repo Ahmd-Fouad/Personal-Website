@@ -741,20 +741,16 @@ interface ShowreelItem {
 }
 
 type FullscreenVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void };
-type FrameCallbackVideo = HTMLVideoElement & {
-  requestVideoFrameCallback?: (callback: () => void) => number;
-};
 
 /**
- * Poster-first showreel with intelligent autoplay. Media URLs stay in
- * `data-src` until the priority Hero image has loaded and decoded; the first
- * slide then gets a non-blocking metadata head start. One IntersectionObserver
- * upgrades the active slide as the reel nears the viewport and a second starts
- * muted playback once the reel is sufficiently visible. Playback pauses when
- * the reel leaves the viewport, the tab is hidden, or another slide is
- * selected; a slide the user manually paused never auto-resumes. Autoplay is
- * skipped entirely under prefers-reduced-motion or Save-Data, leaving the
- * manual controls in charge.
+ * Video-first showreel with phased loading and intelligent autoplay. The first
+ * media URL is attached with full preload as soon as the priority Hero image
+ * has loaded and decoded. The remaining URLs stay detached until the reel is
+ * within 800px of the viewport, then each is attached exactly once. Playback
+ * pauses when the reel leaves the viewport, the tab is hidden, or another
+ * slide is selected; a slide the user manually paused never auto-resumes.
+ * Autoplay is skipped under prefers-reduced-motion or Save-Data, leaving the
+ * manual controls in charge without changing the source lifecycle.
  */
 export function initShowreel(): void {
   const track = document.getElementById('video-track');
@@ -794,14 +790,14 @@ export function initShowreel(): void {
   if (!items.length) return;
 
   const connection = (
-    navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }
+    navigator as Navigator & { connection?: { saveData?: boolean } }
   ).connection;
   const saveData = connection?.saveData === true;
-  const slowConnection = ['slow-2g', '2g', '3g'].includes(connection?.effectiveType ?? '');
   const autoplayEligible = () => !prefersReducedMotion() && !saveData;
 
   // True while the reel is "sufficiently visible" (≥40% in the viewport).
   let sectionVisible = false;
+  let proximityReached = false;
 
   const syncControl = (item: ShowreelItem) => {
     const playing = !item.video.paused && !item.video.ended;
@@ -811,9 +807,7 @@ export function initShowreel(): void {
   };
 
   const syncState = (item: ShowreelItem) => {
-    item.slide.classList.toggle('has-frame', item.frameReady);
-    // The spinner may sit over either the poster or the retained last frame;
-    // it never replaces the meaningful visual underneath.
+    // The spinner overlays the video without hiding its latest decoded frame.
     item.slide.classList.toggle('is-waiting', item.loading);
     item.slide.dataset.mediaState = item.failed
       ? 'failed'
@@ -845,8 +839,8 @@ export function initShowreel(): void {
 
   /**
    * Attach the real media URL and start fetching; safe to call repeatedly.
-   * 'metadata' warms cheaply (headers + moov atom); a later 'auto' call
-   * upgrades the same source to full buffering without resetting playback.
+   * Only the first call assigns the source and invokes load(); later calls may
+   * promote preload without resetting playback or buffered data.
    */
   const prepareItem = (item: ShowreelItem, mode: 'auto' | 'metadata' = 'auto') => {
     if (item.sourceAttached) {
@@ -866,18 +860,15 @@ export function initShowreel(): void {
     syncState(item);
   };
 
-  /** As soon as the active video owns a real frame, prepare both immediate
-   * neighbours without an arbitrary delay. Normal connections use full auto
-   * preload; slow connections use metadata; Save-Data keeps posters only. */
-  function scheduleAdjacent(item: ShowreelItem): void {
-    if (saveData || (!item.frameReady && !item.canPlay)) return;
-
+  /** Promote the active video and its immediate circular neighbours without
+   * reassigning sources or calling load() again. */
+  function promoteActiveNeighborhood(item: ShowreelItem): void {
     const index = items.indexOf(item);
     const next = items[(index + 1) % items.length];
     const previous = items[(index - 1 + items.length) % items.length];
-    const mode = slowConnection ? 'metadata' : 'auto';
-    if (next !== item) prepareItem(next, mode);
-    if (previous !== item && previous !== next) prepareItem(previous, mode);
+    prepareItem(item, 'auto');
+    if (next !== item) prepareItem(next, 'auto');
+    if (previous !== item && previous !== next) prepareItem(previous, 'auto');
   }
 
   const playItem = async (item: ShowreelItem, viaAutoplay: boolean) => {
@@ -892,8 +883,8 @@ export function initShowreel(): void {
     item.autoPaused = false;
     item.playPending = true;
     item.toggle.setAttribute('aria-busy', 'true');
-    // Loading affordance: poster stays put, a subtle ring spins around the
-    // existing control until the video reports it can actually play.
+    // A subtle ring overlays the existing control until the real video owns a
+    // decoded frame; the video element itself always remains visible.
     item.loading = !item.frameReady;
     syncState(item);
     setStatus(item, item.frameReady ? '' : 'Loading video…');
@@ -910,7 +901,7 @@ export function initShowreel(): void {
       await item.video.play();
     } catch {
       // Autoplay rejection or a network failure: clear the autoplay intent and
-      // leave the poster with a usable, retryable Play control.
+      // leave the video with a usable Play control.
       item.video.autoplay = false;
       item.loading = false;
       setStatus(item, '');
@@ -952,9 +943,9 @@ export function initShowreel(): void {
       syncState(item);
       syncControl(item);
     });
-    // Poster hand-off and loading ring: a frame exists from `loadeddata`
-    // (readyState ≥ HAVE_CURRENT_DATA) onward, and `waiting`/`canplay`/
-    // `playing` track mid-playback buffering stalls.
+    // First-frame readiness begins at `loadeddata` (readyState ≥
+    // HAVE_CURRENT_DATA); `waiting`/`canplay`/`playing` then track any
+    // mid-playback buffering stalls.
     item.video.addEventListener('loadedmetadata', () => {
       item.metadataReady = true;
       syncState(item);
@@ -965,19 +956,11 @@ export function initShowreel(): void {
         item.video.videoWidth > 0 &&
         item.video.videoHeight > 0
       ) {
-        const confirmFrame = () => {
-          item.frameReady = true;
-          item.loading =
-            !item.video.paused && item.video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
-          syncState(item);
-          if (activeItem() === item) scheduleAdjacent(item);
-        };
-        const frameVideo = item.video as FrameCallbackVideo;
-        if (typeof frameVideo.requestVideoFrameCallback === 'function') {
-          frameVideo.requestVideoFrameCallback(confirmFrame);
-        } else {
-          window.requestAnimationFrame(confirmFrame);
-        }
+        item.frameReady = true;
+        item.loading =
+          !item.video.paused && item.video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
+        syncState(item);
+        if (proximityReached && activeItem() === item) promoteActiveNeighborhood(item);
       }
     });
     item.video.addEventListener('playing', () => {
@@ -994,7 +977,7 @@ export function initShowreel(): void {
       item.toggle.removeAttribute('aria-busy');
       syncState(item);
       setStatus(item, '');
-      if (activeItem() === item) scheduleAdjacent(item);
+      if (proximityReached && activeItem() === item) promoteActiveNeighborhood(item);
     });
     item.video.addEventListener('waiting', () => {
       if (!item.video.paused) {
@@ -1019,21 +1002,13 @@ export function initShowreel(): void {
       item.canPlay = false;
       item.toggle.removeAttribute('aria-busy');
       syncState(item);
-      setStatus(item, 'Video failed to load. Press play to retry.');
+      setStatus(item, 'Video failed to load.');
       syncControl(item);
     });
     item.toggle.addEventListener('click', () => {
       if (item.video.paused) {
         item.userPaused = false;
         item.autoPaused = false;
-        // A failed source stays retryable: reload it before playing again.
-        if (item.video.error && item.failed) {
-          setStatus(item, '');
-          item.failed = false;
-          item.loading = true;
-          syncState(item);
-          item.video.load();
-        }
         void playItem(item, false);
       } else {
         item.userPaused = true;
@@ -1080,6 +1055,22 @@ export function initShowreel(): void {
     return nearest;
   }
 
+  /** Attach every remaining source once the reel is near. The active slide
+   * and its immediate circular neighbours receive full preload; any more
+   * distant slide starts with metadata only. */
+  const prepareApproachingItems = () => {
+    if (proximityReached) return;
+    proximityReached = true;
+
+    const active = activeItem();
+    const activeIndex = items.indexOf(active);
+    items.forEach((item, index) => {
+      const distance = Math.abs(index - activeIndex);
+      const circularDistance = Math.min(distance, items.length - distance);
+      prepareItem(item, circularDistance <= 1 ? 'auto' : 'metadata');
+    });
+  };
+
   /** Start muted playback of the active slide when every gate allows it. */
   const maybeAutoplay = () => {
     if (!sectionVisible || document.hidden || !autoplayEligible()) return;
@@ -1088,57 +1079,42 @@ export function initShowreel(): void {
     void playItem(active, true);
   };
 
-  // First-video head start: as soon as the priority Hero portrait has loaded
-  // and decoded, use the browser's next idle slice (or one animation frame as
-  // fallback) to attach metadata. This avoids both an unrelated window-load
-  // gate and any fixed delay while protecting the Hero/LCP request.
-  if (!saveData) {
-    const warmFirst = () => prepareItem(items[0], 'metadata');
-    let firstWarmScheduled = false;
-    const scheduleFirstWarm = () => {
-      if (firstWarmScheduled) return;
-      firstWarmScheduled = true;
-      if (typeof window.requestIdleCallback === 'function') {
-        window.requestIdleCallback(warmFirst);
-      } else {
-        window.requestAnimationFrame(warmFirst);
-      }
-    };
-    const heroPortrait = document.querySelector<HTMLImageElement>('.hero-portrait');
-    const afterHeroDecode = () => {
-      if (!heroPortrait || typeof heroPortrait.decode !== 'function') {
-        scheduleFirstWarm();
-        return;
-      }
-      void heroPortrait.decode().then(scheduleFirstWarm, scheduleFirstWarm);
-    };
-
-    if (!heroPortrait || (heroPortrait.complete && heroPortrait.naturalWidth > 0)) {
-      afterHeroDecode();
-    } else {
-      heroPortrait.addEventListener('load', afterHeroDecode, { once: true });
-      heroPortrait.addEventListener('error', scheduleFirstWarm, { once: true });
+  // Give the first video a full-preload head start immediately after the
+  // priority Hero portrait has loaded and decoded. No window-load gate, idle
+  // callback, or fixed delay sits between Hero readiness and source attach.
+  let firstWarmStarted = false;
+  const warmFirst = () => {
+    if (firstWarmStarted) return;
+    firstWarmStarted = true;
+    prepareItem(items[0], 'auto');
+  };
+  const heroPortrait = document.querySelector<HTMLImageElement>('.hero-portrait');
+  const afterHeroDecode = () => {
+    if (!heroPortrait || typeof heroPortrait.decode !== 'function') {
+      warmFirst();
+      return;
     }
+    void heroPortrait.decode().then(warmFirst, warmFirst);
+  };
+
+  if (!heroPortrait || (heroPortrait.complete && heroPortrait.naturalWidth > 0)) {
+    afterHeroDecode();
+  } else {
+    heroPortrait.addEventListener('load', afterHeroDecode, { once: true });
+    heroPortrait.addEventListener('error', warmFirst, { once: true });
   }
 
   if ('IntersectionObserver' in window) {
-    // Warm videos as the reel approaches (~25% of a viewport ahead): active
-    // first, then both immediate neighbours only after the active item owns a
-    // frame. Remaining slides stay cold.
-    if (!saveData) {
-      const warm = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) return;
-            const active = activeItem();
-            prepareItem(active, slowConnection ? 'metadata' : 'auto');
-            scheduleAdjacent(active);
-          });
-        },
-        { rootMargin: '25% 0px' },
-      );
-      warm.observe(track);
-    }
+    // Attach videos 2â€“4 once, 800px before the reel reaches the viewport.
+    const warm = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        prepareApproachingItems();
+        warm.disconnect();
+      },
+      { rootMargin: '800px 0px' },
+    );
+    warm.observe(track);
 
     const player = new IntersectionObserver(
       (entries) => {
@@ -1173,8 +1149,8 @@ export function initShowreel(): void {
         scrollFrame = 0;
         const active = activeItem();
         pauseAll(active);
-        prepareItem(active, slowConnection ? 'metadata' : 'auto');
-        scheduleAdjacent(active);
+        prepareApproachingItems();
+        promoteActiveNeighborhood(active);
         maybeAutoplay();
       });
     },
